@@ -165,6 +165,36 @@ function handlePotData(potsData) {
     updatePotDisplay();
 }
 
+function findItemIndexBySubstring(menuChoicesData, searchString) {
+    if (!menuChoicesData) {
+        return { index: -1, name: null };
+    }
+
+    try {
+        const choices = JSON.parse(menuChoicesData);
+        if (!Array.isArray(choices)) {
+            console.error("menu_choices is not an array:", choices);
+            return { index: -1, name: null };
+        }
+
+        const itemIndex = choices.findIndex(item => {
+            if (Array.isArray(item) && typeof item[0] === 'string') {
+                return item[0].toLowerCase().includes(searchString.toLowerCase());
+            }
+            return false;
+        });
+
+        if (itemIndex !== -1) {
+            return { index: itemIndex, name: choices[itemIndex][0] };
+        }
+
+        return { index: -1, name: null };
+    } catch (e) {
+        console.error("Error parsing menu_choices JSON:", e);
+        return { index: -1, name: null };
+    }
+}
+
 // --- AUTOMATION ---
 
 function checkForPotCollection() {
@@ -530,6 +560,30 @@ function openDebugTab(evt, tabName) {
     evt.currentTarget.className += " active";
 }
 
+async function runCommandSequence() {
+    sendCommand({ type: 'notification', text: 'Starting command sequence...' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    sendCommand({ type: 'openMainMenu' });
+    sendCommand({ type: 'notification', text: 'Opening main menu...' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    sendCommand({ type: 'forceMenuChoice', choice: 'Inventory', mod: 0 });
+    sendCommand({ type: 'notification', text: 'Opening inventory...' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
+    sendCommand({ type: 'notification', text: 'Finding gut knife...' });
+    sendCommand({ type: 'forceMenuChoice', choice: gutIndex.name, mod: 0 });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    sendCommand({ type: 'forceMenuChoice', choice: 'Gut fish', mod: 0 });
+    sendCommand({ type: 'notification', text: 'Gutting fish...' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    sendCommand({ type: 'forceMenuBack' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    sendCommand({ type: 'forceMenuBack' });
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    sendCommand({ type: 'forceMenuBack' });
+    sendCommand({ type: 'notification', text: 'Sequence finished!' });
+}
+
 function initialize() {
     document.querySelectorAll('.window').forEach(makeDraggable);
 
@@ -607,6 +661,7 @@ function initialize() {
             sendCommand({ type: 'notification', text: 'Error: Invalid JSON in command sender.' });
         }
     };
+    document.getElementById('run-sequence-btn').onclick = runCommandSequence;
 
     window.addEventListener("message", (event) => {
         if (event.data && event.data.data) {

@@ -156,6 +156,7 @@
                 <div class="debug-tabs">
                     <button class="debug-tab-button active" onclick="openDebugTab(event, 'RawData')">Raw Data</button>
                     <button class="debug-tab-button" onclick="openDebugTab(event, 'SendCommand')">Send Command</button>
+                    <button class="debug-tab-button" onclick="openDebugTab(event, 'Automation')">Automation</button>
                 </div>
                 <div id="RawData" class="debug-tab-content active">
                     <pre id="debug-data"></pre>
@@ -163,6 +164,9 @@
                 <div id="SendCommand" class="debug-tab-content">
                     <textarea id="command-json" placeholder='{ "type": "notification", "text": "Hello" }'></textarea>
                     <button id="send-command-btn">Send</button>
+                </div>
+                <div id="Automation" class="debug-tab-content">
+                    <button id="run-sequence-btn">Run Sequence</button>
                 </div>
             </div>
         </div>
