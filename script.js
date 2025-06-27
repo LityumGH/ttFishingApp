@@ -563,13 +563,17 @@ function openDebugTab(evt, tabName) {
 async function runCommandSequence() {
     sendCommand({ type: 'notification', text: 'Starting command sequence...' });
     sendCommand({ type: 'openMainMenu' });
+    await new Promise(resolve => setTimeout(resolve, 100));
     sendCommand({ type: 'forceMenuChoice', choice: 'Inventory', mod: 0 });
+    await new Promise(resolve => setTimeout(resolve, 100));
     var gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
     sendCommand({ type: 'notification', text: 'Finding gut knife...' });
     sendCommand({ type: 'forceMenuChoice', choice: gutIndex.name, mod: 0 });
+    await new Promise(resolve => setTimeout(resolve, 100));
     var gutIndex2 = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
     sendCommand({ type: 'forceMenuChoice', choice: gutIndex2.name, mod: 0 });
     sendCommand({ type: 'notification', text: 'Gutting fish...' });
+    await new Promise(resolve => setTimeout(resolve, 100));
     sendCommand({ type: 'forceMenuBack' });
     sendCommand({ type: 'forceMenuBack' });
     sendCommand({ type: 'notification', text: 'Sequence finished!' });
