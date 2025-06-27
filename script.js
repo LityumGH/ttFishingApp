@@ -16,6 +16,7 @@ const state = {
         fishingPerkActive: false,
         autoGut: false,
         autoStore: false,
+        autoHide: false,
         apiMode: 'mock',
         apiKey: '',
         sortBy: 'distance',
@@ -186,7 +187,7 @@ function triggerAutoStore() {
 
 function updateWindowVisibility() {
     const isBrowser = window.parent === window;
-    const shouldBeVisible = DEBUG_MODE || isBrowser || (state.isFisherman && state.isInBoat);
+    const shouldBeVisible = DEBUG_MODE || isBrowser || !state.config.autoHide || (state.isFisherman && state.isInBoat);
 
     if (shouldBeVisible) {
         if (!state.uiVisible) {
@@ -268,17 +269,59 @@ function updatePotDisplay() {
     const tableBody = document.querySelector('#pots-table tbody');
     tableBody.innerHTML = '';
 
-    const collectionTimeSeconds = state.config.fishingPerkActive ? 11 * 3600 : 22 * 3600;
-    const hourlyRate = state.config.fishingPerkActive ? (138 / 11) : (138 / 22);
+    const maxYield = 138;
+    const collectionTimePerk = 11 * 3600;
+    const collectionTimeNoPerk = 22 * 3600;
 
-    // Add calculated properties for sorting
     const potsToDisplay = state.pots.map(pot => {
-        const isReady = pot.age >= collectionTimeSeconds;
+        let potYield, potState;
+        const isReadyForCollection = state.config.fishingPerkActive 
+            ? pot.age >= collectionTimePerk 
+            : pot.age >= collectionTimeNoPerk;
+
+        if (state.config.fishingPerkActive) {
+            const hourlyRate = maxYield / 11;
+            potYield = Math.min(maxYield, Math.floor((pot.age / 3600) * hourlyRate));
+            potState = isReadyForCollection ? 'Ready' : 'Soaking';
+        } else {
+            const hourlyRate = maxYield / 22;
+            const peakCapacityTimeSeconds = 22 * 3600;
+            const degradationStartTimeSeconds = peakCapacityTimeSeconds + (24 * 3600); // 46 hours
+            const degradationIntervalSeconds = 12 * 3600; // 12 hours
+            const degradationSteps = 5; // 5 steps to reach 50% degradation
+            const degradationPerStep = (maxYield * 0.5) / degradationSteps; // 10% of max yield (13.8)
+
+            if (pot.age <= peakCapacityTimeSeconds) {
+                potYield = Math.floor((pot.age / 3600) * hourlyRate);
+                potState = 'Soaking';
+            } else if (pot.age <= degradationStartTimeSeconds) {
+                potYield = maxYield;
+                potState = 'Ready';
+            } else {
+                const timeSinceDegradationStart = pot.age - degradationStartTimeSeconds;
+                const degradationPeriods = Math.floor(timeSinceDegradationStart / degradationIntervalSeconds);
+
+                if (degradationPeriods > 0) {
+                    const totalDegradationAmount = degradationPeriods * degradationPerStep;
+                    potYield = maxYield - totalDegradationAmount;
+                    potYield = Math.max(maxYield * 0.5, potYield); // Cap at 50% loss
+                } else {
+                    potYield = maxYield;
+                }
+
+                if (potYield <= maxYield * 0.5) {
+                    potState = 'Degraded';
+                } else {
+                    potState = 'Degrading';
+                }
+            }
+        }
+
         return {
             ...pot,
-            isReady: isReady,
-            state: isReady ? 'Ready' : 'Soaking',
-            yield: Math.min(138, Math.floor((pot.age / 3600) * hourlyRate)),
+            isReady: isReadyForCollection,
+            state: potState,
+            yield: Math.floor(potYield),
             distance: calculateDistance(state.playerPosition, pot.position)
         };
     });
@@ -302,12 +345,13 @@ function updatePotDisplay() {
 
     potsToDisplay.forEach(pot => {
         const row = document.createElement('tr');
+        const stateClass = `status-${pot.state.toLowerCase()}`;
         row.innerHTML = `
                 <td>${pot.id}</td>
                 <td>${pot.type}</td>
                 <td>${pot.distance.toFixed(0)}</td>
                 <td title="Click to set waypoint">${pot.position.x.toFixed(0)}, ${pot.position.y.toFixed(0)}</td>
-                <td style="color: ${pot.isReady ? 'var(--ready-color)' : 'inherit'}">${pot.state}</td>
+                <td class="${stateClass}">${pot.state}</td>
                 <td>${formatTime(pot.age)}</td>
                 <td>${pot.yield}</td>
             `;
@@ -400,6 +444,7 @@ function initialize() {
     state.config.fishingPerkActive = localStorage.getItem('fishingPerkActive') === 'true';
     state.config.autoGut = localStorage.getItem('autoGut') === 'true';
     state.config.autoStore = localStorage.getItem('autoStore') === 'true';
+    state.config.autoHide = localStorage.getItem('autoHide') === 'true';
     state.config.apiMode = localStorage.getItem('apiMode') || 'mock';
     state.config.apiKey = localStorage.getItem('apiKey') || '';
     state.config.sortBy = localStorage.getItem('sortBy') || 'distance';
@@ -410,6 +455,7 @@ function initialize() {
     document.getElementById('perk-active').checked = state.config.fishingPerkActive;
     document.getElementById('auto-gut').checked = state.config.autoGut;
     document.getElementById('auto-store').checked = state.config.autoStore;
+    document.getElementById('auto-hide').checked = state.config.autoHide;
     document.getElementById('api-mode').value = state.config.apiMode;
     document.getElementById('api-key').value = state.config.apiKey;
     document.getElementById('api-key-container').style.display = state.config.apiMode === 'real' ? 'block' : 'none';
@@ -431,11 +477,13 @@ function initialize() {
         state.config.fishingPerkActive = document.getElementById('perk-active').checked;
         state.config.autoGut = document.getElementById('auto-gut').checked;
         state.config.autoStore = document.getElementById('auto-store').checked;
+        state.config.autoHide = document.getElementById('auto-hide').checked;
         state.config.apiMode = document.getElementById('api-mode').value;
         state.config.apiKey = document.getElementById('api-key').value;
         localStorage.setItem('fishingPerkActive', state.config.fishingPerkActive);
         localStorage.setItem('autoGut', state.config.autoGut);
         localStorage.setItem('autoStore', state.config.autoStore);
+        localStorage.setItem('autoHide', state.config.autoHide);
         localStorage.setItem('apiMode', state.config.apiMode);
         localStorage.setItem('apiKey', state.config.apiKey);
         const statusEl = document.getElementById('api-status');

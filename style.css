@@ -4,11 +4,13 @@
     --header-bg: #2a2a2a;
     --text-color: #f0f0f0;
     --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    --success-color: #4CAF50;
-    --error-color: #F44336;
+    --success-color: #28a745;
+    --error-color: #dc3545;
     --warning-color: #ff9800;
-    --ready-color: #4CAF50;
+    --ready-color: #28a745;
     --pinned-color: #03a9f4;
+    --degrading-color: #ffc107;
+    --degraded-color: #dc3545;
 }
 
 body {
@@ -269,4 +271,23 @@ button:hover {
     font-family: monospace;
     font-size: 12px;
     word-break: break-all;
+}
+
+.status-degraded {
+    color: var(--degraded-color);
+    font-weight: bold;
+}
+
+.status-degrading {
+    color: var(--degrading-color);
+}
+
+.status-ready {
+    color: var(--ready-color);
+    font-weight: bold;
+}
+
+#pots-table td {
+    padding: 8px;
+    text-align: left;
 }
