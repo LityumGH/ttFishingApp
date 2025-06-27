@@ -562,24 +562,15 @@ function openDebugTab(evt, tabName) {
 
 async function runCommandSequence() {
     sendCommand({ type: 'notification', text: 'Starting command sequence...' });
-    await new Promise(resolve => setTimeout(resolve, 1000));
     sendCommand({ type: 'openMainMenu' });
-    sendCommand({ type: 'notification', text: 'Opening main menu...' });
-    await new Promise(resolve => setTimeout(resolve, 1000));
     sendCommand({ type: 'forceMenuChoice', choice: 'Inventory', mod: 0 });
-    sendCommand({ type: 'notification', text: 'Opening inventory...' });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
+    var gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
     sendCommand({ type: 'notification', text: 'Finding gut knife...' });
     sendCommand({ type: 'forceMenuChoice', choice: gutIndex.name, mod: 0 });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    sendCommand({ type: 'forceMenuChoice', choice: 'Gut fish', mod: 0 });
+    gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
+    sendCommand({ type: 'forceMenuChoice', choice: gutIndex.name, mod: 0 });
     sendCommand({ type: 'notification', text: 'Gutting fish...' });
-    await new Promise(resolve => setTimeout(resolve, 1000));
     sendCommand({ type: 'forceMenuBack' });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    sendCommand({ type: 'forceMenuBack' });
-    await new Promise(resolve => setTimeout(resolve, 1000));
     sendCommand({ type: 'forceMenuBack' });
     sendCommand({ type: 'notification', text: 'Sequence finished!' });
 }
