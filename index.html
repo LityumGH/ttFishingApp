@@ -12,7 +12,7 @@
         <!-- Info Window -->
         <div id="info-window" class="window">
             <div class="window-header">
-                <span class="window-title">Info</span>
+                <span class="window-title">Advanced Fishing Helper</span>
                 <div class="controls">
                     <span class="pin-button" onclick="togglePin('info-window')">&#128204;</span>
                     <span class="toggle-button" onclick="toggleWindow('info-window')">_</span>
@@ -23,6 +23,9 @@
                 <p><strong>Job:</strong> <span id="job-name">N/A</span></p>
                 <p><strong>Fishing EXP:</strong> <span id="fishing-exp">0</span></p>
                 <p><strong>Vehicle:</strong> <span id="vehicle-name">N/A</span></p>
+                <p><strong>Weather:</strong> <span id="current-weather">N/A</span></p>
+                <p><strong>Forecast:</strong> <span id="forecast-weather">N/A</span></p>
+                <p><strong>Conditions:</strong> <span id="fishing-conditions">N/A</span></p>
             </div>
         </div>
 
@@ -115,7 +118,7 @@
                 </select>
                 <div id="api-key-container" style="display: none;">
                     <label for="api-key">Private API Key:</label>
-                    <input type="text" id="api-key" placeholder="Enter your key">
+                    <input type="password" id="api-key" placeholder="Enter your key">
                 </div>
                 <button id="save-settings-btn">Save Settings</button>
                 <div id="api-status"></div>
@@ -133,9 +136,10 @@
             </div>
             <div class="window-content">
                 <p><strong>Advanced Fishing Helper</strong></p>
-                <p>Version: 0.1.0</p>
-                <p>Created by: Lityum</p>
-                <p>A tool to assist with fishing activities.</p>
+                <p><strong>Version:</strong> 0.1.0</p>
+                <p><strong>Created by:</strong> Lityum</p>
+                <p><i>A tool to assist with fishing activities.</i></p>
+                <p><a href="https://github.com/LityumGH/ttFishingApp" target="_blank">GitHub Repository </a></p>
             </div>
         </div>
 

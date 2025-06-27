@@ -22,7 +22,8 @@ const state = {
         sortBy: 'distance',
         sortOrder: 'asc'
     },
-    pinnedWindows: []
+    pinnedWindows: [],
+    previousPotCount: 0
 };
 
 // --- CORE LOGIC ---
@@ -67,6 +68,17 @@ function handleGameData(data) {
         document.getElementById('fishing-exp').textContent = state.fishingExp.toLocaleString();
     }
 
+    if (data.weather) {
+        const weatherInfo = getWeatherInfo(data.weather);
+        document.getElementById('current-weather').textContent = `${weatherInfo.text} ${weatherInfo.icon} (+${weatherInfo.bonus}% 🎣)`;
+        document.getElementById('fishing-conditions').textContent = `${'⭐'.repeat(weatherInfo.rating)}${'☆'.repeat(5 - weatherInfo.rating)}`;
+    }
+
+    if (data.weather_forecast) {
+        const forecastInfo = getWeatherInfo(data.weather_forecast);
+        document.getElementById('forecast-weather').textContent = `${forecastInfo.text} ${forecastInfo.icon} (+${forecastInfo.bonus}% 🎣)`;
+    }
+
     const inventoryKeys = Object.keys(data).filter(k => k.startsWith('inventory') || k.startsWith('chest_'));
     if (inventoryKeys.length > 0) {
         updateCombinedInventoryDisplay();
@@ -74,6 +86,10 @@ function handleGameData(data) {
 
     if (data.trigger_fish_caught && state.config.autoGut) {
         triggerAutoGut();
+    }
+
+    if (data.horn === true) {
+        checkForPotCollection();
     }
 
     if (data.focused !== undefined || data.pinned !== undefined) {
@@ -150,6 +166,50 @@ function handlePotData(potsData) {
 }
 
 // --- AUTOMATION ---
+
+function checkForPotCollection() {
+    if (state.pots.length === 0 || !state.playerPosition) return;
+
+    const closestPot = state.pots.reduce((closest, pot) => {
+        const distance = calculateDistance(state.playerPosition, pot.position);
+        if (distance < closest.distance) {
+            return { pot, distance };
+        }
+        return closest;
+    }, { pot: null, distance: Infinity });
+
+    if (closestPot.distance > 10) return;
+
+    let currentPotCount = 0;
+    const itemsToCount = ['pot_crab', 'pot_lobster'];
+    for (const key in state.allGameData) {
+        if (key.startsWith('inventory')) {
+            try {
+                const inventory = JSON.parse(state.allGameData[key]);
+                for (const itemName in inventory) {
+                    const cleanName = itemName.split('|')[0];
+                    if (itemsToCount.includes(cleanName)) {
+                        currentPotCount += inventory[itemName].amount;
+                    }
+                }
+            } catch (e) { /* Ignore */ }
+        }
+    }
+
+    if (currentPotCount > state.previousPotCount) {
+        const collectedPotType = closestPot.pot ? closestPot.pot.type : 'pot';
+        sendCommand({ type: 'notification', text: `Collected one ${collectedPotType} pot.` });
+        
+        // Optimistically remove the pot and refetch in the background
+        const potIndex = state.pots.findIndex(p => p.id === closestPot.pot.id);
+        if (potIndex > -1) {
+            state.pots.splice(potIndex, 1);
+        }
+        updatePotDisplay(); // Update UI immediately
+        fetchPotData(); // Fetch fresh data from API
+    }
+    state.previousPotCount = currentPotCount;
+}
 
 function detectNewFish() {
     if (!state.config.autoGut || !state.allGameData.inventory) return;
@@ -374,6 +434,39 @@ function formatTime(seconds) {
     return `${h}:${m}:${s}`;
 }
 
+function getWeatherInfo(weatherName) {
+    if (!weatherName) {
+        return { text: 'N/A', rating: 0, bonus: 0 };
+    }
+
+    const cleanedName = weatherName.toUpperCase();
+    let info = { text: weatherName, rating: 2, bonus: 0 }; // Default
+
+    switch (cleanedName) {
+        case 'THUNDER':
+            info = { text: 'Stormy', rating: 5, bonus: 40, icon: '⛈️' };
+            break;
+        case 'RAIN':
+            info = { text: 'Rainy', rating: 4, bonus: 20, icon: '🌧️' };
+            break;
+        case 'OVERCAST':
+        case 'CLOUDS':
+        case 'CLEARING':
+            info = { text: 'Drizzly', rating: 3, bonus: 10, icon: '🌦️' };
+            break;
+        case 'CLEAR':
+        case 'EXTRASUNNY':
+            info = { text: 'Sunny', rating: 1, bonus: 0, icon: '☀️' };
+            break;
+        default:
+            info = { text: weatherName.replace(/_/g, ' '), rating: 2, bonus: 0 };
+            break;
+    }
+    info.text = info.text.charAt(0).toUpperCase() + info.text.slice(1).toLowerCase();
+
+    return info;
+}
+
 function makeDraggable(windowElement) {
     const header = windowElement.querySelector('.window-header');
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
@@ -562,7 +655,9 @@ function initialize() {
             job: 'fisher', job_name: 'Fisher', vehicleClass: 14, vehicleName: 'Tropic',
             pos_x: 4000, pos_y: -5000, 'exp_farming_fishing': 123456,
             inventory: JSON.stringify({ "pot_crab": { "amount": 10 }, "fish_tuna": { "amount": 5 } }),
-            "chest_self_storage:12345:home:chest": JSON.stringify({ "pot_lobster": { "amount": 5 } })
+            "chest_self_storage:12345:home:chest": JSON.stringify({ "pot_lobster": { "amount": 5 } }),
+            weather: 'THUNDER',
+            weather_forecast: 'RAIN'
         });
         fetchPotData();
     } else {
