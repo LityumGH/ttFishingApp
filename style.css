@@ -1,0 +1,266 @@
+:root {
+    --bg-color: rgba(30, 30, 30, 0.9);
+    --border-color: #4f4f4f;
+    --header-bg: #2a2a2a;
+    --text-color: #f0f0f0;
+    --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --success-color: #4CAF50;
+    --error-color: #F44336;
+    --warning-color: #ff9800;
+    --ready-color: #4CAF50;
+    --pinned-color: #03a9f4;
+}
+
+body {
+    font-family: var(--font-family);
+    color: var(--text-color);
+    background-color: transparent;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+#main-container {
+    display: none;
+    /* Hidden by default, script will manage visibility */
+}
+
+.window {
+    position: absolute;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    min-height: 40px;
+    /* Height of the header */
+}
+
+.window-header {
+    background-color: var(--header-bg);
+    padding: 8px 12px;
+    cursor: move;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}
+
+.window-header .controls {
+    display: flex;
+    gap: 8px;
+}
+
+.window-title {
+    font-weight: bold;
+}
+
+.toggle-button,
+.pin-button {
+    cursor: pointer;
+    padding: 0 5px;
+    font-weight: bold;
+}
+
+.pin-button.pinned {
+    color: var(--pinned-color);
+}
+
+.window-content {
+    padding: 10px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.window.minimized .window-content {
+    display: none;
+}
+
+.window.minimized {
+    min-height: 0;
+    height: auto !important;
+    /* Override inline style from resize */
+    resize: none !important;
+}
+
+.window-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.window-content::-webkit-scrollbar-thumb {
+    background: #555;
+    border-radius: 4px;
+}
+
+.window-content::-webkit-scrollbar-track {
+    background: var(--bg-color);
+}
+
+/* Specific window styles */
+#info-window {
+    top: 20px;
+    left: 20px;
+    width: 250px;
+}
+
+#inventory-window {
+    top: 20px;
+    left: 290px;
+    width: 350px;
+}
+
+#pots-window {
+    top: 220px;
+    left: 20px;
+    width: 620px;
+    height: 250px;
+    resize: vertical;
+    overflow: hidden;
+}
+
+#settings-window {
+    top: 20px;
+    right: 20px;
+    width: 250px;
+}
+
+#debug-window {
+    top: 450px;
+    left: 20px;
+    width: 400px;
+    height: 300px;
+    resize: both;
+    overflow: hidden;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border: 1px solid var(--border-color);
+    padding: 5px;
+    text-align: left;
+    font-size: 14px;
+}
+
+th {
+    background-color: var(--header-bg);
+}
+
+tr:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+label {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+input[type="text"],
+select,
+button,
+textarea {
+    width: 100%;
+    padding: 6px;
+    margin-top: 4px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: #333;
+    color: var(--text-color);
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+button {
+    cursor: pointer;
+    background-color: #555;
+    margin-top: 10px;
+}
+
+button:hover {
+    background-color: #666;
+}
+
+.sort-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.sort-controls select {
+    margin-top: 0;
+}
+
+#pot-warning {
+    background-color: var(--warning-color);
+    color: #111;
+    padding: 8px;
+    border-radius: 4px;
+    text-align: center;
+    margin-bottom: 10px;
+    display: none;
+}
+
+#api-status {
+    margin-top: 10px;
+    padding: 5px;
+    border-radius: 4px;
+    text-align: center;
+    font-size: 12px;
+}
+
+/* Debug Tabs */
+.debug-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 10px;
+}
+
+.debug-tab-button {
+    padding: 8px 12px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: var(--text-color);
+    margin-top: 0;
+}
+
+.debug-tab-button.active {
+    background-color: var(--bg-color);
+    border-bottom: 2px solid var(--pinned-color);
+}
+
+.debug-tab-content {
+    display: none;
+}
+
+.debug-tab-content.active {
+    display: block;
+}
+
+#debug-data {
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 12px;
+    word-break: break-all;
+}
