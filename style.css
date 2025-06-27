@@ -129,6 +129,12 @@ body {
     width: 250px;
 }
 
+#about-window {
+    top: 250px;
+    right: 20px;
+    width: 250px;
+}
+
 #debug-window {
     top: 450px;
     left: 20px;

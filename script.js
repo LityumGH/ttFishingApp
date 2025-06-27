@@ -364,7 +364,7 @@ function togglePin(windowId) {
     const pinButton = windowEl.querySelector('.pin-button');
     const isPinned = windowEl.classList.toggle('pinned');
     pinButton.classList.toggle('pinned', isPinned);
-    pinButton.innerHTML = isPinned ? '&#128205;' : '📌'; // Filled vs outline pin
+    pinButton.innerHTML = isPinned ? '&#128205;' : '&#128204;'; // Round pin for pinned
 
     if (isPinned) {
         if (!state.pinnedWindows.includes(windowId)) {

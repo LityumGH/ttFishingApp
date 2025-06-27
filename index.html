@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Advanced Fishing Helper</title>
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
     <div id="main-container">
@@ -16,7 +14,7 @@
             <div class="window-header">
                 <span class="window-title">Info</span>
                 <div class="controls">
-                    <span class="pin-button" onclick="togglePin('info-window')">📌</span>
+                    <span class="pin-button" onclick="togglePin('info-window')">&#128204;</span>
                     <span class="toggle-button" onclick="toggleWindow('info-window')">_</span>
                 </div>
             </div>
@@ -33,7 +31,7 @@
             <div class="window-header">
                 <span class="window-title">All Fishing Items</span>
                 <div class="controls">
-                    <span class="pin-button" onclick="togglePin('inventory-window')">📌</span>
+                    <span class="pin-button" onclick="togglePin('inventory-window')">&#128204;</span>
                     <span class="toggle-button" onclick="toggleWindow('inventory-window')">_</span>
                 </div>
             </div>
@@ -55,7 +53,7 @@
             <div class="window-header">
                 <span class="window-title">Fishing Pots</span>
                 <div class="controls">
-                    <span class="pin-button" onclick="togglePin('pots-window')">📌</span>
+                    <span class="pin-button" onclick="togglePin('pots-window')">&#128204;</span>
                     <span class="toggle-button" onclick="toggleWindow('pots-window')">_</span>
                 </div>
             </div>
@@ -100,7 +98,7 @@
             <div class="window-header">
                 <span class="window-title">Settings</span>
                 <div class="controls">
-                    <span class="pin-button" onclick="togglePin('settings-window')">📌</span>
+                    <span class="pin-button" onclick="togglePin('settings-window')">&#128204;</span>
                     <span class="toggle-button" onclick="toggleWindow('settings-window')">_</span>
                 </div>
             </div>
@@ -123,12 +121,29 @@
             </div>
         </div>
 
+        <!-- About Window -->
+        <div id="about-window" class="window">
+            <div class="window-header">
+                <span class="window-title">About</span>
+                <div class="controls">
+                    <span class="pin-button" onclick="togglePin('about-window')">&#128204;</span>
+                    <span class="toggle-button" onclick="toggleWindow('about-window')">_</span>
+                </div>
+            </div>
+            <div class="window-content">
+                <p><strong>Advanced Fishing Helper</strong></p>
+                <p>Version: 0.1.0</p>
+                <p>Created by: Lityum</p>
+                <p>A tool to assist with fishing activities.</p>
+            </div>
+        </div>
+
         <!-- Debug Window -->
         <div id="debug-window" class="window">
             <div class="window-header">
                 <span class="window-title">Debug</span>
                 <div class="controls">
-                    <span class="pin-button" onclick="togglePin('debug-window')">📌</span>
+                    <span class="pin-button" onclick="togglePin('debug-window')">&#128204;</span>
                     <span class="toggle-button" onclick="toggleWindow('debug-window')">_</span>
                 </div>
             </div>
@@ -150,5 +165,4 @@
 
     <script src="script.js"></script>
 </body>
-
 </html>
