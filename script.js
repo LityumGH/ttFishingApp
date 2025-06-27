@@ -567,8 +567,8 @@ async function runCommandSequence() {
     var gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
     sendCommand({ type: 'notification', text: 'Finding gut knife...' });
     sendCommand({ type: 'forceMenuChoice', choice: gutIndex.name, mod: 0 });
-    gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
-    sendCommand({ type: 'forceMenuChoice', choice: gutIndex.name, mod: 0 });
+    var gutIndex2 = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
+    sendCommand({ type: 'forceMenuChoice', choice: gutIndex2.name, mod: 0 });
     sendCommand({ type: 'notification', text: 'Gutting fish...' });
     sendCommand({ type: 'forceMenuBack' });
     sendCommand({ type: 'forceMenuBack' });
