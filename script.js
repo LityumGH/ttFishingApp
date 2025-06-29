@@ -7,6 +7,7 @@ const state = {
     isFisherman: false,
     isInBoat: false,
     uiVisible: false,
+    status: false,
     playerPosition: { x: 0, y: 0 },
     pots: [],
     lastPotsData: [],
@@ -51,11 +52,13 @@ function handleGameData(data) {
     if (data.job !== undefined) {
         state.isFisherman = data.job === 'fisher';
         document.getElementById('job-name').textContent = data.job_name || 'N/A';
+        updateAppStatus();
+        updateWindowVisibility();
     }
 
     if (data.vehicleClass !== undefined || data.vehicleName !== undefined) {
-        state.isInBoat = data.vehicleClass === 14;
-        document.getElementById('vehicle-name').textContent = state.isInBoat ? (data.vehicleName || state.allGameData.vehicleName || 'Unknown Boat') : 'N/A';
+        state.isInBoat = state.allGameData.vehicleClass === 14 && state.allGameData.vehicleName.toLowerCase() === state.allGameData.boat.toLowerCase();
+        document.getElementById('vehicle-name').textContent = state.isInBoat ? (state.allGameData.vehicleName || 'Unknown Boat') : 'N/A';
     }
 
     if (data.pos_x !== undefined && data.pos_y !== undefined) {
@@ -65,7 +68,9 @@ function handleGameData(data) {
 
     if (data['exp_farming_fishing'] !== undefined) {
         state.fishingExp = data['exp_farming_fishing'];
-        document.getElementById('fishing-exp').textContent = state.fishingExp.toLocaleString();
+        //document.getElementById('fishing-exp').textContent = state.fishingExp.toLocaleString();
+        const fishingLevel = Math.floor((Math.sqrt(1 + 8 * state.fishingExp / 5) - 1) / 2);
+        document.getElementById('fishing-exp').textContent = `${state.fishingExp.toLocaleString()} (Level ${fishingLevel})`;
     }
 
     if (data.weather) {
@@ -82,14 +87,17 @@ function handleGameData(data) {
     const inventoryKeys = Object.keys(data).filter(k => k.startsWith('inventory') || k.startsWith('chest_'));
     if (inventoryKeys.length > 0) {
         updateCombinedInventoryDisplay();
+        detectNewFish();
     }
 
-    if (data.trigger_fish_caught && state.config.autoGut) {
-        triggerAutoGut();
-    }
-
-    if (data.horn === true) {
-        checkForPotCollection();
+    if (data.horn !== undefined) {
+        if (data.horn === true) {
+            sendCommand({ type: 'notification', text: 'Horn pressed.' });
+            checkForPotCollection();
+        }
+        else if (data.horn === false) {
+            sendCommand({ type: 'notification', text: 'Horn released.' });
+        }
     }
 
     if (data.focused !== undefined || data.pinned !== undefined) {
@@ -109,7 +117,7 @@ async function fetchPotData() {
     if (state.config.apiMode === 'mock') {
         const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 79201 }];
         handlePotData(mockResponse);
-        localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now(), data: mockResponse }));
+        localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now() - 79200, data: mockResponse }));
         statusEl.textContent = 'Mock data loaded.';
         statusEl.style.backgroundColor = 'var(--success-color)';
         return;
@@ -132,6 +140,7 @@ async function fetchPotData() {
             localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now(), data: potsData }));
             statusEl.textContent = `Pots loaded: ${potsData.length}`;
             statusEl.style.backgroundColor = 'var(--success-color)';
+            document.getElementById('pot-warning').style.display = 'none';
         } else {
             statusEl.textContent = `API Error: ${response.status}`;
             statusEl.style.backgroundColor = 'var(--error-color)';
@@ -153,15 +162,7 @@ function handlePotData(potsData) {
         type: pot.type || 'unknown'
     }));
 
-    if (newPots.length > state.lastPotsData.length && state.lastPotsData.length > 0) {
-        const collectionDurationHours = state.config.fishingPerkActive ? 11 : 22;
-        const readyDate = new Date(now.getTime() + collectionDurationHours * 60 * 60 * 1000);
-        const readyTimeStr = readyDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        sendCommand({ type: 'notification', text: `Pot #${newPots.length} placed. Ready at ${readyTimeStr}` });
-    }
-
     state.pots = newPots;
-    state.lastPotsData = potsData;
     updatePotDisplay();
 }
 
@@ -208,37 +209,65 @@ function checkForPotCollection() {
         return closest;
     }, { pot: null, distance: Infinity });
 
-    if (closestPot.distance > 10) return;
+    // if (closestPot.distance > 11) return;
 
-    let currentPotCount = 0;
-    const itemsToCount = ['pot_crab', 'pot_lobster'];
-    for (const key in state.allGameData) {
-        if (key.startsWith('inventory')) {
-            try {
-                const inventory = JSON.parse(state.allGameData[key]);
-                for (const itemName in inventory) {
-                    const cleanName = itemName.split('|')[0];
-                    if (itemsToCount.includes(cleanName)) {
-                        currentPotCount += inventory[itemName].amount;
-                    }
-                }
-            } catch (e) { /* Ignore */ }
-        }
+    sendCommand({ type: 'notification', text: '[DEBUG] Closest pot: ' + closestPot.pot.type + ' at ' + closestPot.distance + 'm' + ' ID: ' + closestPot.pot.id });
+
+    if (closestPot.pot.type === 'crab') {
+        sendCommand({ type: 'notification', text: 'Crab pot collected.' });
+    } else if (closestPot.pot.type === 'lobster') {
+        sendCommand({ type: 'notification', text: 'Lobster pot collected.' });
+    } else {
+        sendCommand({ type: 'notification', text: 'Seafloor pot collected.' });
     }
 
-    if (currentPotCount > state.previousPotCount) {
-        const collectedPotType = closestPot.pot ? closestPot.pot.type : 'pot';
-        sendCommand({ type: 'notification', text: `Collected one ${collectedPotType} pot.` });
-        
-        // Optimistically remove the pot and refetch in the background
-        const potIndex = state.pots.findIndex(p => p.id === closestPot.pot.id);
-        if (potIndex > -1) {
-            state.pots.splice(potIndex, 1);
+    // Remove the pot from the list
+    state.pots = state.pots.filter(pot => pot.id !== closestPot.pot.id);
+    // Update cached pot data in localStorage to reflect the removed pot
+    const cachedPotsRaw = localStorage.getItem('cachedPots');
+    if (cachedPotsRaw) {
+        try {
+            const cachedPots = JSON.parse(cachedPotsRaw);
+            // Remove the collected pot from cached data
+            cachedPots.data = cachedPots.data.filter(pot => pot.id !== closestPot.pot.id);
+            // Update the cache with the modified data
+            localStorage.setItem('cachedPots', JSON.stringify(cachedPots));
+        } catch (e) {
+            console.error('Error updating cached pot data:', e);
         }
-        updatePotDisplay(); // Update UI immediately
-        fetchPotData(); // Fetch fresh data from API
     }
-    state.previousPotCount = currentPotCount;
+    updatePotDisplay();
+    triggerAutoGut();
+
+    // let currentPotCount = 0;
+    // const itemsToCount = ['pot_crab', 'pot_lobster'];
+    // for (const key in state.allGameData) {
+    //     if (key.startsWith('inventory')) {
+    //         try {
+    //             const inventory = JSON.parse(state.allGameData[key]);
+    //             for (const itemName in inventory) {
+    //                 const cleanName = itemName.split('|')[0];
+    //                 if (itemsToCount.includes(cleanName)) {
+    //                     currentPotCount += inventory[itemName].amount;
+    //                 }
+    //             }
+    //         } catch (e) { /* Ignore */ }
+    //     }
+    // }
+
+    // if (currentPotCount > state.previousPotCount) {
+    //     const collectedPotType = closestPot.pot ? closestPot.pot.type : 'pot';
+    //     sendCommand({ type: 'notification', text: `Collected one ${collectedPotType} pot.` });
+
+    //     // Optimistically remove the pot and refetch in the background
+    //     const potIndex = state.pots.findIndex(p => p.id === closestPot.pot.id);
+    //     if (potIndex > -1) {
+    //         state.pots.splice(potIndex, 1);
+    //     }
+    //     updatePotDisplay(); // Update UI immediately
+    //     fetchPotData(); // Fetch fresh data from API
+    // }
+    // state.previousPotCount = currentPotCount;
 }
 
 function detectNewFish() {
@@ -258,18 +287,38 @@ function detectNewFish() {
 }
 
 function triggerAutoGut() {
-    sendCommand({ type: 'notification', text: 'Triggering auto gut...' });
-    sendCommand({ type: 'sendCommand', command: 'item gut_knife gut' });
-    if (state.config.autoStore) {
-        setTimeout(triggerAutoStore, 1500);
+    if (state.config.autoGut) {
+        sendCommand({ type: 'notification', text: 'Triggering auto gut...' });
+        autoGutFish();
+        if (state.config.autoStore) {
+            setTimeout(triggerAutoStore, 200);
+        }
     }
 }
 
-function triggerAutoStore() {
+async function triggerAutoStore() {
     if (state.isInBoat) {
         sendCommand({ type: 'notification', text: 'Triggering auto store...' });
         sendCommand({ type: 'sendCommand', command: 'rm_trunk' });
+        await (async () => {
+            let timeout = 0;
+            while (!state.menu_open || !state.allGameData.menu.toLowerCase().includes('trunk') || !state.allGameData.chest.toLowerCase().includes('veh')) {
+                await new Promise(resolve => setTimeout(resolve, 10));
+                timeout += 10;
+                if (timeout >= 2000) {
+                    sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting for gut menu' });
+                    return;
+                }
+            }
+        })();
         sendCommand({ type: 'notification', text: 'Trunk opened for fish meat.' });
+        const putAllIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'put all');
+        if (putAllIndex.index !== -1) {
+            sendCommand({ type: 'forceMenuChoice', choice: putAllIndex.name, mod: 0 });
+            sendCommand({ type: 'notification', text: 'Put all fish meat in trunk.' });
+        }
+        sendCommand({ type: 'forceMenuBack' });
+        sendCommand({ type: 'notification', text: 'Trunk closed.' });
     }
 }
 
@@ -277,19 +326,17 @@ function triggerAutoStore() {
 
 function updateWindowVisibility() {
     const isBrowser = window.parent === window;
-    const shouldBeVisible = DEBUG_MODE || isBrowser || !state.config.autoHide || (state.isFisherman && state.isInBoat);
+    const shouldBeVisible = DEBUG_MODE || isBrowser || !state.config.autoHide || state.status;
 
     if (shouldBeVisible) {
         if (!state.uiVisible) {
             state.uiVisible = true;
             document.getElementById('main-container').style.display = 'block';
-            document.getElementById('status').textContent = isBrowser ? 'Mock Mode' : 'Active';
         }
     } else {
         if (state.uiVisible) {
             state.uiVisible = false;
             document.getElementById('main-container').style.display = 'none';
-            document.getElementById('status').textContent = 'Inactive';
         }
     }
 
@@ -365,8 +412,8 @@ function updatePotDisplay() {
 
     const potsToDisplay = state.pots.map(pot => {
         let potYield, potState;
-        const isReadyForCollection = state.config.fishingPerkActive 
-            ? pot.age >= collectionTimePerk 
+        const isReadyForCollection = state.config.fishingPerkActive
+            ? pot.age >= collectionTimePerk
             : pot.age >= collectionTimeNoPerk;
 
         if (state.config.fishingPerkActive) {
@@ -469,27 +516,58 @@ function getWeatherInfo(weatherName) {
         return { text: 'N/A', rating: 0, bonus: 0 };
     }
 
-    const cleanedName = weatherName.toUpperCase();
-    let info = { text: weatherName, rating: 2, bonus: 0 }; // Default
+    let info = { text: weatherName, rating: 1, bonus: 0, icon: '' }; // Default
 
-    switch (cleanedName) {
+    switch (weatherName) {
         case 'THUNDER':
             info = { text: 'Stormy', rating: 5, bonus: 40, icon: '⛈️' };
             break;
         case 'RAIN':
             info = { text: 'Rainy', rating: 4, bonus: 20, icon: '🌧️' };
             break;
-        case 'OVERCAST':
-        case 'CLOUDS':
         case 'CLEARING':
             info = { text: 'Drizzly', rating: 3, bonus: 10, icon: '🌦️' };
+            break;
+        case 'OVERCAST':
+        case 'CLOUDS':
+            info = { text: 'Cloudy', rating: 2, bonus: 0, icon: '🌥️' };
             break;
         case 'CLEAR':
         case 'EXTRASUNNY':
             info = { text: 'Sunny', rating: 1, bonus: 0, icon: '☀️' };
             break;
+        case 'SMOG':
+            info = { text: 'Smoggy', rating: 1, bonus: 0, icon: '🌫️' };
+            break;
+        case 'FOGGY':
+            info = { text: 'Foggy', rating: 1, bonus: 0, icon: '🌫️' };
+            break;
+        case 'XMAS':
+            info = { text: 'Christmas', rating: 1, bonus: 0, icon: '🎄' };
+            break;
+        case 'SNOW':
+            info = { text: 'Snowy', rating: 1, bonus: 0, icon: '❄️' };
+            break;
+        case 'SNOWLIGHT':
+            info = { text: 'Light Snow', rating: 1, bonus: 0, icon: '🌨️' };
+            break;
+        case 'BLIZZARD':
+            info = { text: 'Blizzard', rating: 1, bonus: 0, icon: '🌨️' };
+            break;
+        case 'HALLOWEEN':
+            info = { text: 'Halloween', rating: 1, bonus: 0, icon: '🎃' };
+            break;
+        case 'NEUTRAL':
+            info = { text: 'Neutral', rating: 1, bonus: 0, icon: '🌤️' };
+            break;
+        case 'RAIN_HALLOWEEN':
+            info = { text: 'Spooky Rain', rating: 1, bonus: 0, icon: '🌧️🎃' };
+            break;
+        case 'SNOW_HALLOWEEN':
+            info = { text: 'Spooky Snow', rating: 1, bonus: 0, icon: '❄️🎃' };
+            break;
         default:
-            info = { text: weatherName.replace(/_/g, ' '), rating: 2, bonus: 0 };
+            info = { text: weatherName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), rating: 1, bonus: 0, icon: '🤷‍♂️' };
             break;
     }
     info.text = info.text.charAt(0).toUpperCase() + info.text.slice(1).toLowerCase();
@@ -562,21 +640,71 @@ function openDebugTab(evt, tabName) {
 
 async function runCommandSequence() {
     sendCommand({ type: 'notification', text: 'Starting command sequence...' });
+    autoGutFish();
+}
+
+async function autoGutFish() {
     sendCommand({ type: 'openMainMenu' });
-    await new Promise(resolve => setTimeout(resolve, 100));
+    let timeout = 0;
+    while (!state.menu_open || !state.allGameData.menu.toLowerCase().includes('main')) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        timeout += 10;
+        if (timeout >= 2000) {
+            sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting for main menu' });
+            return;
+        }
+    }
+
     sendCommand({ type: 'forceMenuChoice', choice: 'Inventory', mod: 0 });
-    await new Promise(resolve => setTimeout(resolve, 100));
+    timeout = 0;
+    while (!state.menu_open || !state.allGameData.menu.toLowerCase().includes('inventory')) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        timeout += 10;
+        if (timeout >= 2000) {
+            sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting for inventory menu' });
+            return;
+        }
+    }
+
     var gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
     sendCommand({ type: 'notification', text: 'Finding gut knife...' });
     sendCommand({ type: 'forceMenuChoice', choice: gutIndex.name, mod: 0 });
-    await new Promise(resolve => setTimeout(resolve, 100));
+    timeout = 0;
+    while (!state.menu_open || !state.allGameData.menu.toLowerCase().includes('inventory')) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+        timeout += 10;
+        if (timeout >= 2000) {
+            sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting for gut menu' });
+            return;
+        }
+    }
+
     var gutIndex2 = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
     sendCommand({ type: 'forceMenuChoice', choice: gutIndex2.name, mod: 0 });
     sendCommand({ type: 'notification', text: 'Gutting fish...' });
-    await new Promise(resolve => setTimeout(resolve, 100));
-    sendCommand({ type: 'forceMenuBack' });
-    sendCommand({ type: 'forceMenuBack' });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    timeout = 0;
+    while (state.menu_open && state.allGameData.menu !== 'none') {
+        sendCommand({ type: 'forceMenuBack' });
+        await new Promise(resolve => setTimeout(resolve, 10));
+        timeout += 10;
+        if (timeout >= 2000) {
+            sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting to close menu' });
+            return;
+        }
+    }
     sendCommand({ type: 'notification', text: 'Sequence finished!' });
+}
+
+function updateAppStatus() {
+    const isBrowser = window.parent === window;
+    if (isBrowser) {
+        state.status = false;
+        document.getElementById('status').textContent = 'Mock Mode';
+    } else {
+        state.status = state.isFisherman;
+        document.getElementById('status').textContent = state.isFisherman ? 'Active' : 'Inactive';
+    }
 }
 
 function initialize() {
@@ -664,7 +792,10 @@ function initialize() {
         }
     });
 
-    window.addEventListener('keydown', (e) => { if (e.key === "Escape") sendCommand({ type: "pin" }); });
+    window.addEventListener('keydown', (e) => {
+        if (e.key === "Escape") sendCommand({ type: "pin" });
+        if (e.key === "h" || e.key === "H") sendCommand({ type: "close" });
+    });
 
     setInterval(() => {
         if (state.uiVisible) {
@@ -703,16 +834,18 @@ function initialize() {
         document.getElementById('main-container').style.display = 'block';
         handleGameData({
             job: 'fisher', job_name: 'Fisher', vehicleClass: 14, vehicleName: 'Tropic',
-            pos_x: 4000, pos_y: -5000, 'exp_farming_fishing': 123456,
+            pos_x: 4000, pos_y: -5000, 'exp_farming_fishing': 25250,
             inventory: JSON.stringify({ "pot_crab": { "amount": 10 }, "fish_tuna": { "amount": 5 } }),
             "chest_self_storage:12345:home:chest": JSON.stringify({ "pot_lobster": { "amount": 5 } }),
             weather: 'THUNDER',
-            weather_forecast: 'RAIN'
+            weather_forecast: 'RAIN',
+            boat: 'Tropic'
         });
         fetchPotData();
     } else {
         sendCommand({ type: "getData" });
     }
+    updateAppStatus();
 }
 
 initialize();
