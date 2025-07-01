@@ -64,7 +64,7 @@
                 <div id="pot-warning">Warning: Pot data might be outdated. Please fetch new data.</div>
                 <div class="sort-controls">
                     <button id="fetch-pots-btn" style="width: auto; flex-grow: 1;">Fetch Pot Data</button>
-                    <button id="clear-waypoint-btn" style="width: auto; flex-grow: 1;">Clear Waypoint</button>
+                    <button id="clear-waypoint-btn" style="width: auto; flex-grow: 1;" onclick="clearWaypointHandler()">Clear Waypoint</button>
                     <label for="sort-by" style="margin: 0;">Sort By:</label>
                     <select id="sort-by" style="width: auto; flex-grow: 1;">
                         <option value="id">ID</option>
@@ -168,6 +168,8 @@
                 </div>
                 <div id="Automation" class="debug-tab-content">
                     <button id="run-sequence-btn">Run Sequence</button>
+                    <button id="clear-blips-btn">Clear Blips</button>
+                    <button id="update-blips-btn">Update Blips</button>
                 </div>
             </div>
         </div>

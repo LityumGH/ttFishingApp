@@ -24,7 +24,8 @@ const state = {
         sortOrder: 'asc'
     },
     pinnedWindows: [],
-    inventoryCache: { fish: 0, pots: 0 }
+    inventoryCache: { fish: 0, pots: 0 },
+    potBlips: []
 };
 
 // --- CORE LOGIC ---
@@ -177,7 +178,76 @@ function handlePotData(potsData) {
     }));
 
     state.pots = newPots;
+    clearPotBlips();
     updatePotDisplay();
+}
+
+function addPotBlip(pot) {
+    if (state.potBlips.find(blip => blip.id === `afh_blip${pot.id}` && blip.position.x === pot.position.x && blip.position.y === pot.position.y)) return;
+    state.potBlips.push({
+        id: `afh_blip${pot.id}`,
+        position: pot.position,
+        type: pot.type,
+        state: pot.state,
+        yield: pot.yield,
+        age: pot.age,
+        isReady: pot.isReady
+    });
+
+    sendCommand({ type: 'addBlip', id: state.potBlips[state.potBlips.length - 1].id, x: state.potBlips[state.potBlips.length - 1].position.x, y: state.potBlips[state.potBlips.length - 1].position.y });
+}
+
+function clearPotBlips() {
+    state.potBlips.forEach(blip => {
+        sendCommand({ type: 'removeBlip', id: blip.id });
+    });
+    state.potBlips = [];
+}
+
+function updatePotBlips() {
+    // id: `afh_blip${pot.id}`,
+    // position: pot.position,
+    // type: pot.type,
+    // state: pot.state,
+    // yield: pot.yield,
+    // age: pot.age,
+    // isReady: pot.isReady
+    
+    // add new blips
+    state.potBlips.forEach(blip => {
+        // sendCommand({ type: 'addBlip', id: blip.id, x: blip.position.x, y: blip.position.y });
+        var blipName = '';
+        var blipColor = 40;  // dark gray
+        if (blip.type === 'crab') {
+            blipName = 'Crab Pot ' + blip.state;
+            sendCommand({ type: 'setBlipSprite', id: blip.id, sprite: 237 }); // 237 crab pot
+        } else if (blip.type === 'lobster') {
+            blipName = 'Lobster Pot ' + blip.state;
+            sendCommand({ type: 'setBlipSprite', id: blip.id, sprite: 238 }); // 238 lobster pot
+        } else {
+            blipName = 'Seafloor Pot ' + blip.state;
+            sendCommand({ type: 'setBlipSprite', id: blip.id, sprite: 237 });
+        }
+        if (blip.isReady) {
+            if (blip.state === 'Ready') {
+                blipName = '~g~' + blipName;
+                blipColor = 2;  // green
+            } else if (blip.state === 'Degrading') {
+                blipName = '~y~' + blipName;
+                blipColor = 5;  // yellow
+            } else if (blip.state === 'Degraded') {
+                blipName = '~r~' + blipName;
+                blipColor = 1;  // red
+            }
+            sendCommand({ type: 'setBlipName', id: blip.id, name: blipName });
+            sendCommand({ type: 'setBlipColour', id: blip.id, color: blipColor });
+            sendCommand({ type: 'showTickOnBlip', id: blip.id, ticked: true });
+        } else {
+            sendCommand({ type: 'setBlipName', id: blip.id, name: blipName });
+            sendCommand({ type: 'setBlipColour', id: blip.id, color: blipColor });
+            // sendCommand({ type: 'showTickOnBlip', id: blip.id, ticked: false });
+        }
+    });
 }
 
 function findClosestPot() {
@@ -319,7 +389,7 @@ function checkForPotCollection() {
 
 function handleInventoryChange() {
     const newInventory = { fish: 0, pots: 0 };
-    const itemsToTrack = { 'fish_': 'fish', 'fish_pot': 'pots'};
+    const itemsToTrack = { 'fish_': 'fish', 'fish_pot': 'pots' };
 
     // 1. Count current items from all inventory sources
     for (const key in state.allGameData) {
@@ -357,7 +427,7 @@ function handleInventoryChange() {
         if (closestPot.distance < 15) { // Player is near a pot
             sendCommand({ type: 'notification', text: `Collected a ${closestPot.pot.type} pot!` });
             state.pots = state.pots.filter(p => p.id !== closestPot.pot.id);
-            updatePotDisplay(); 
+            updatePotDisplay();
             triggerAutoGut();
         } else { // Fish caught by other means (e.g., fishing rod)
             sendCommand({ type: 'notification', text: 'New fish caught!' });
@@ -582,7 +652,13 @@ function updatePotDisplay() {
         row.style.cursor = 'pointer';
         row.onclick = () => sendCommand({ type: 'setWaypoint', x: pot.position.x, y: pot.position.y });
         tableBody.appendChild(row);
+        addPotBlip(pot);
     });
+    // updatePotBlips();
+}
+
+function clearWaypointHandler() {
+    sendCommand({ type: 'setWaypoint', x: state.playerPosition.x, y: state.playerPosition.y });
 }
 
 function calculateDistance(pos1, pos2) {
@@ -826,7 +902,8 @@ function initialize() {
         }
     };
     document.getElementById('run-sequence-btn').onclick = runCommandSequence;
-
+    document.getElementById('clear-blips-btn').onclick = clearPotBlips;
+    document.getElementById('update-blips-btn').onclick = updatePotBlips;
     window.addEventListener("message", (event) => {
         if (event.data && event.data.data) {
             handleGameData(event.data.data);
