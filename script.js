@@ -375,14 +375,11 @@ function triggerAutoGut() {
     if (state.config.autoGut) {
         sendCommand({ type: 'notification', text: 'Triggering auto gut...' });
         autoGutFish();
-        if (state.config.autoStore) {
-            triggerAutoStore();
-        }
     }
 }
 
 async function triggerAutoStore() {
-    if (!state.isInBoat) return;
+    if (!state.status) return;
 
     sendCommand({ type: 'notification', text: 'Triggering auto store...' });
 
