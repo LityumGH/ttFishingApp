@@ -319,7 +319,7 @@ function checkForPotCollection() {
 
 function handleInventoryChange() {
     const newInventory = { fish: 0, pots: 0 };
-    const itemsToTrack = { 'fish_': 'fish', 'pot_crab': 'pots', 'pot_lobster': 'pots' };
+    const itemsToTrack = { 'fish_': 'fish', 'fish_pot': 'pots'};
 
     // 1. Count current items from all inventory sources
     for (const key in state.allGameData) {
@@ -328,7 +328,7 @@ function handleInventoryChange() {
                 const inventory = JSON.parse(state.allGameData[key]);
                 for (const itemName in inventory) {
                     for (const prefix in itemsToTrack) {
-                        if (itemName.startsWith(prefix)) {
+                        if (itemName.startsWith(prefix) && !itemName.includes('meat')) {
                             newInventory[itemsToTrack[prefix]] += inventory[itemName].amount;
                         }
                     }
