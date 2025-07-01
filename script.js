@@ -661,6 +661,7 @@ function updatePotDisplay() {
         if (state.potBlips.length === 0) {return;}
         if (pot.state !== state.potBlips.find(blip => blip.id === `afh_blip${pot.id}`)?.state) {
             state.blipsNeedUpdate = 1;
+            sendCommand({ type: 'notification', text: 'Pot state changed, updating blips...' });
         }
     });
     if (state.blipsNeedUpdate === 1) {
