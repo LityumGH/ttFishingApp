@@ -357,13 +357,11 @@ function handleInventoryChange() {
         if (closestPot.distance < 15) { // Player is near a pot
             sendCommand({ type: 'notification', text: `Collected a ${closestPot.pot.type} pot!` });
             state.pots = state.pots.filter(p => p.id !== closestPot.pot.id);
-            updatePotDisplay();
-
-            if (state.config.autoGut) {
-                triggerAutoGut();
-            }
+            updatePotDisplay(); 
+            triggerAutoGut();
         } else { // Fish caught by other means (e.g., fishing rod)
             sendCommand({ type: 'notification', text: 'New fish caught!' });
+            triggerAutoGut();
         }
     }
 
@@ -379,7 +377,7 @@ function triggerAutoGut() {
 }
 
 async function triggerAutoStore() {
-    if (!state.status) return;
+    if (!state.status || !state.config.autoStore) return;
 
     sendCommand({ type: 'notification', text: 'Triggering auto store...' });
 
@@ -735,7 +733,7 @@ async function runCommandSequence() {
 async function autoGutFish() {
     sendCommand({ type: 'notification', text: 'Starting auto-gut sequence...' });
     sendCommand({ type: 'sendCommand', command: 'item gut_knife gut' });
-    await new Promise(resolve => setTimeout(resolve, 200));
+    await new Promise(resolve => setTimeout(resolve, 15000));
     triggerAutoStore();
 }
 
