@@ -388,6 +388,7 @@ async function triggerAutoStore() {
 
     try {
         sendCommand({ type: 'sendCommand', command: 'rm_trunk' });
+        sendCommand({ type: 'sendCommand', command: 'getData' });
         await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('trunk'));
         sendCommand({ type: 'notification', text: 'Trunk opened for fish meat.' });
 
@@ -737,48 +738,9 @@ async function runCommandSequence() {
 
 async function autoGutFish() {
     sendCommand({ type: 'notification', text: 'Starting auto-gut sequence...' });
-    try {
-        // 1. Open Main Menu
-        sendCommand({ type: 'openMainMenu' });
-        await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('main'));
-
-        // 2. Navigate to Inventory
-        sendCommand({ type: 'forceMenuChoice', choice: 'Inventory', mod: 0 });
-        await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('inventory'));
-
-        // 3. Find and use Gut Knife
-        const gutKnifeChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
-        if (gutKnifeChoice.index === -1) {
-            throw new Error('Gut knife not found in inventory.');
-        }
-        sendCommand({ type: 'forceMenuChoice', choice: gutKnifeChoice.name, mod: 0 });
-        await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('gut')); // Assuming menu title changes to 'Gut'
-
-        // 4. Select 'Gut All' (or similar)
-        const gutAllChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut'); // Often the same menu
-        if (gutAllChoice.index === -1) {
-            throw new Error("Could not find 'Gut All' option.");
-        }
-        sendCommand({ type: 'forceMenuChoice', choice: gutAllChoice.name, mod: 0 });
-        sendCommand({ type: 'notification', text: 'Gutting all fish...' });
-
-        // 5. Wait for all menus to close
-        await waitForCondition(() => !state.allGameData.menu_open, 5000); // Allow more time for gutting process
-
-        sendCommand({ type: 'notification', text: 'Auto-gut sequence finished!' });
-
-        // 6. Trigger auto-store if enabled
-        if (state.config.autoStore) {
-            setTimeout(triggerAutoStore, 500); // Short delay before starting next sequence
-        }
-
-    } catch (error) {
-        sendCommand({ type: 'notification', text: `~r~Auto-gut failed: ${error.message}` });
-        // Ensure menus are closed on failure
-        if (state.allGameData.menu_open) {
-            sendCommand({ type: 'forceMenuBack' });
-        }
-    }
+    sendCommand({ type: 'sendCommand', command: 'item gut_knife gut' });
+    await new Promise(resolve => setTimeout(resolve, 200));
+    triggerAutoStore();
 }
 
 function updateAppStatus() {
