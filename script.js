@@ -393,7 +393,6 @@ async function triggerAutoStore() {
         if (putAllChoice.index !== -1) {
             sendCommand({ type: 'forceMenuChoice', choice: putAllChoice.name, mod: 0 });
             sendCommand({ type: 'notification', text: 'All fish meat stored in trunk.' });
-            await waitForCondition(() => !state.allGameData.menu_open); // Wait for menu to close after action
         } else {
             sendCommand({ type: 'notification', text: '~y~Could not find \'Put All\' option.' });
         }
