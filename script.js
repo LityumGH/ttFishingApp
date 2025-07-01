@@ -1,6 +1,6 @@
 // --- CONSTANTS ---
 const API_BASE_URL = 'https://tycoon-2epova.users.cfx.re/status';
-const DEBUG_MODE = true; // Set to true to show all windows and extra logs
+const DEBUG_MODE = false; // Set to true to show all windows and extra logs
 
 // --- STATE MANAGEMENT ---
 const state = {
@@ -121,7 +121,7 @@ async function fetchPotData() {
     potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading pot data...</td></tr>';
 
     if (state.config.apiMode === 'mock') {
-        const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 79201 }];
+        const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 79200-10 }];
         setTimeout(() => { // Simulate network delay
             handlePotData(mockResponse);
             localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now() - 79200, data: mockResponse }));
@@ -180,6 +180,7 @@ function handlePotData(potsData) {
     state.pots = newPots;
     clearPotBlips();
     updatePotDisplay();
+    updatePotBlips();
 }
 
 function addPotBlip(pot) {
@@ -205,14 +206,6 @@ function clearPotBlips() {
 }
 
 function updatePotBlips() {
-    // id: `afh_blip${pot.id}`,
-    // position: pot.position,
-    // type: pot.type,
-    // state: pot.state,
-    // yield: pot.yield,
-    // age: pot.age,
-    // isReady: pot.isReady
-    
     // add new blips
     state.potBlips.forEach(blip => {
         // sendCommand({ type: 'addBlip', id: blip.id, x: blip.position.x, y: blip.position.y });
@@ -494,6 +487,7 @@ function updateWindowVisibility() {
         if (state.uiVisible) {
             state.uiVisible = false;
             document.getElementById('main-container').style.display = 'none';
+            clearPotBlips();
         }
     }
 
@@ -654,7 +648,20 @@ function updatePotDisplay() {
         tableBody.appendChild(row);
         addPotBlip(pot);
     });
-    // updatePotBlips();
+    // update blips only if pot state is changed
+    if (potsToDisplay.some(pot => pot.state !== state.potBlips.find(blip => blip.id === `afh_blip${pot.id}`)?.state)) {
+        clearPotBlips();
+        state.potBlips = potsToDisplay.map(pot => ({
+            id: `afh_blip${pot.id}`,
+            position: pot.position,
+            type: pot.type,
+            state: pot.state,
+            yield: pot.yield,
+            age: pot.age,
+            isReady: pot.isReady
+        }));
+        updatePotBlips();
+    }
 }
 
 function clearWaypointHandler() {
