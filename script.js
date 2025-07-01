@@ -24,7 +24,7 @@ const state = {
         sortOrder: 'asc'
     },
     pinnedWindows: [],
-    previousPotCount: 0
+    inventoryCache: { fish: 0, pots: 0 }
 };
 
 // --- CORE LOGIC ---
@@ -86,19 +86,19 @@ function handleGameData(data) {
 
     const inventoryKeys = Object.keys(data).filter(k => k.startsWith('inventory') || k.startsWith('chest_'));
     if (inventoryKeys.length > 0) {
+        handleInventoryChange();
         updateCombinedInventoryDisplay();
-        detectNewFish();
     }
 
-    if (data.horn !== undefined) {
-        if (data.horn === true) {
-            sendCommand({ type: 'notification', text: 'Horn pressed.' });
-            checkForPotCollection();
-        }
-        else if (data.horn === false) {
-            sendCommand({ type: 'notification', text: 'Horn released.' });
-        }
-    }
+    // if (data.horn !== undefined) {
+    //     if (data.horn === true) {
+    //         sendCommand({ type: 'notification', text: 'Horn pressed.' });
+    //         checkForPotCollection();
+    //     }
+    //     else if (data.horn === false) {
+    //         sendCommand({ type: 'notification', text: 'Horn released.' });
+    //     }
+    // }
 
     if (data.focused !== undefined || data.pinned !== undefined) {
         updateWindowVisibility();
@@ -111,21 +111,31 @@ function handleGameData(data) {
 
 async function fetchPotData() {
     const statusEl = document.getElementById('api-status');
+    const fetchBtn = document.getElementById('fetch-pots-btn');
+    const potsTableBody = document.querySelector('#pots-table tbody');
+
     statusEl.textContent = 'Fetching...';
     statusEl.style.backgroundColor = '#555';
+    fetchBtn.disabled = true;
+    potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading pot data...</td></tr>';
 
     if (state.config.apiMode === 'mock') {
         const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 79201 }];
-        handlePotData(mockResponse);
-        localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now() - 79200, data: mockResponse }));
-        statusEl.textContent = 'Mock data loaded.';
-        statusEl.style.backgroundColor = 'var(--success-color)';
+        setTimeout(() => { // Simulate network delay
+            handlePotData(mockResponse);
+            localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now() - 79200, data: mockResponse }));
+            statusEl.textContent = 'Mock data loaded.';
+            statusEl.style.backgroundColor = 'var(--success-color)';
+            fetchBtn.disabled = false;
+        }, 500);
         return;
     }
 
     if (!state.config.apiKey) {
         statusEl.textContent = 'Error: API Key is missing.';
         statusEl.style.backgroundColor = 'var(--error-color)';
+        potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--error-color);">API Key is missing.</td></tr>';
+        fetchBtn.disabled = false;
         return;
     }
 
@@ -144,12 +154,16 @@ async function fetchPotData() {
         } else {
             statusEl.textContent = `API Error: ${response.status}`;
             statusEl.style.backgroundColor = 'var(--error-color)';
+            potsTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--error-color);">API Error: ${response.status}</td></tr>`;
             sendCommand({ type: 'notification', text: `API Error: ${response.status}` });
         }
     } catch (error) {
         statusEl.textContent = 'Network Error';
         statusEl.style.backgroundColor = 'var(--error-color)';
+        potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--error-color);">Network Error.</td></tr>';
         sendCommand({ type: 'notification', text: `Fetch Error: ${error.message}` });
+    } finally {
+        fetchBtn.disabled = false;
     }
 }
 
@@ -164,6 +178,18 @@ function handlePotData(potsData) {
 
     state.pots = newPots;
     updatePotDisplay();
+}
+
+function findClosestPot() {
+    if (state.pots.length === 0 || !state.playerPosition) return { pot: null, distance: Infinity };
+
+    return state.pots.reduce((closest, pot) => {
+        const distance = calculateDistance(state.playerPosition, pot.position);
+        if (distance < closest.distance) {
+            return { pot, distance };
+        }
+        return closest;
+    }, { pot: null, distance: Infinity });
 }
 
 function findItemIndexBySubstring(menuChoicesData, searchString) {
@@ -194,6 +220,27 @@ function findItemIndexBySubstring(menuChoicesData, searchString) {
         console.error("Error parsing menu_choices JSON:", e);
         return { index: -1, name: null };
     }
+}
+
+/**
+ * Waits for a condition to be true, with a timeout.
+ * @param {() => boolean} conditionFn - A function that returns true when the condition is met.
+ * @param {number} [timeout=2000] - The maximum time to wait in milliseconds.
+ * @returns {Promise<void>} A promise that resolves when the condition is met, or rejects on timeout.
+ */
+function waitForCondition(conditionFn, timeout = 2000) {
+    return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        const interval = setInterval(() => {
+            if (conditionFn()) {
+                clearInterval(interval);
+                resolve();
+            } else if (Date.now() - startTime > timeout) {
+                clearInterval(interval);
+                reject(new Error(`Condition not met within ${timeout}ms`));
+            }
+        }, 50); // Check every 50ms
+    });
 }
 
 // --- AUTOMATION ---
@@ -270,20 +317,58 @@ function checkForPotCollection() {
     // state.previousPotCount = currentPotCount;
 }
 
-function detectNewFish() {
-    if (!state.config.autoGut || !state.allGameData.inventory) return;
+function handleInventoryChange() {
+    const newInventory = { fish: 0, pots: 0 };
+    const itemsToTrack = { 'fish_': 'fish', 'pot_crab': 'pots', 'pot_lobster': 'pots' };
 
-    try {
-        const currentInventory = JSON.parse(state.allGameData.inventory);
-        const currentFishCount = Object.keys(currentInventory).filter(item => item.startsWith('fish_')).length;
-        const previousFishCount = Object.keys(state.previousInventory || {}).filter(item => item.startsWith('fish_')).length;
-
-        if (currentFishCount > previousFishCount) {
-            sendCommand({ type: 'notification', text: 'New fish detected!' });
-            triggerAutoGut();
+    // 1. Count current items from all inventory sources
+    for (const key in state.allGameData) {
+        if (key.startsWith('inventory') || key.startsWith('chest_')) {
+            try {
+                const inventory = JSON.parse(state.allGameData[key]);
+                for (const itemName in inventory) {
+                    for (const prefix in itemsToTrack) {
+                        if (itemName.startsWith(prefix)) {
+                            newInventory[itemsToTrack[prefix]] += inventory[itemName].amount;
+                        }
+                    }
+                }
+            } catch (e) { /* Ignore parse errors */ }
         }
-        state.previousInventory = currentInventory;
-    } catch (e) { /* ignore parse error */ }
+    }
+
+    // 2. Compare with cache and react to changes
+    // Pot placement detection
+    if (state.inventoryCache.pots > 0 && newInventory.pots < state.inventoryCache.pots) {
+        const collectionTime = state.config.fishingPerkActive ? 11 : 22;
+        sendCommand({ type: 'notification', text: `Pot placed! Ready for collection in ${collectionTime} hours.` });
+        state.pots.push({
+            id: state.pots.length + 1,
+            position: state.playerPosition,
+            age: 0,
+            type: 'crab'
+        });
+        updatePotDisplay();
+    }
+
+    // New fish detection
+    if (newInventory.fish > state.inventoryCache.fish) {
+        const closestPot = findClosestPot();
+        if (closestPot.distance < 15) { // Player is near a pot
+            sendCommand({ type: 'notification', text: `Collected a ${closestPot.pot.type} pot!` });
+            state.pots = state.pots.filter(p => p.id !== closestPot.pot.id);
+            updatePotDisplay();
+
+            if (state.config.autoGut) {
+                triggerAutoGut();
+            }
+        } else { // Fish caught by other means (e.g., fishing rod)
+            sendCommand({ type: 'notification', text: 'New fish caught!' });
+        }
+    }
+
+    // 3. Update cache for the next check
+    state.inventoryCache = newInventory;
 }
 
 function triggerAutoGut() {
@@ -291,34 +376,41 @@ function triggerAutoGut() {
         sendCommand({ type: 'notification', text: 'Triggering auto gut...' });
         autoGutFish();
         if (state.config.autoStore) {
-            setTimeout(triggerAutoStore, 200);
+            triggerAutoStore();
         }
     }
 }
 
 async function triggerAutoStore() {
-    if (state.isInBoat) {
-        sendCommand({ type: 'notification', text: 'Triggering auto store...' });
+    if (!state.isInBoat) return;
+
+    sendCommand({ type: 'notification', text: 'Triggering auto store...' });
+
+    try {
         sendCommand({ type: 'sendCommand', command: 'rm_trunk' });
-        await (async () => {
-            let timeout = 0;
-            while (!state.menu_open || !state.allGameData.menu.toLowerCase().includes('trunk') || !state.allGameData.chest.toLowerCase().includes('veh')) {
-                await new Promise(resolve => setTimeout(resolve, 10));
-                timeout += 10;
-                if (timeout >= 2000) {
-                    sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting for gut menu' });
-                    return;
-                }
-            }
-        })();
+        await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('trunk'));
         sendCommand({ type: 'notification', text: 'Trunk opened for fish meat.' });
-        const putAllIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'put all');
-        if (putAllIndex.index !== -1) {
-            sendCommand({ type: 'forceMenuChoice', choice: putAllIndex.name, mod: 0 });
-            sendCommand({ type: 'notification', text: 'Put all fish meat in trunk.' });
+
+        const putAllChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'put all');
+        if (putAllChoice.index !== -1) {
+            sendCommand({ type: 'forceMenuChoice', choice: putAllChoice.name, mod: 0 });
+            sendCommand({ type: 'notification', text: 'All fish meat stored in trunk.' });
+            await waitForCondition(() => !state.allGameData.menu_open); // Wait for menu to close after action
+        } else {
+            sendCommand({ type: 'notification', text: '~y~Could not find \'Put All\' option.' });
         }
-        sendCommand({ type: 'forceMenuBack' });
-        sendCommand({ type: 'notification', text: 'Trunk closed.' });
+
+        if (state.allGameData.menu_open) {
+            sendCommand({ type: 'forceMenuBack' }); // Close the trunk menu
+        }
+        sendCommand({ type: 'notification', text: 'Auto-store complete.' });
+
+    } catch (error) {
+        sendCommand({ type: 'notification', text: `~r~Auto-store failed: ${error.message}` });
+        // Ensure menu is closed on failure
+        if (state.allGameData.menu_open) {
+            sendCommand({ type: 'forceMenuBack' });
+        }
     }
 }
 
@@ -640,60 +732,53 @@ function openDebugTab(evt, tabName) {
 
 async function runCommandSequence() {
     sendCommand({ type: 'notification', text: 'Starting command sequence...' });
-    autoGutFish();
+    await autoGutFish();
 }
 
 async function autoGutFish() {
-    sendCommand({ type: 'openMainMenu' });
-    let timeout = 0;
-    while (!state.menu_open || !state.allGameData.menu.toLowerCase().includes('main')) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-        timeout += 10;
-        if (timeout >= 2000) {
-            sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting for main menu' });
-            return;
-        }
-    }
+    sendCommand({ type: 'notification', text: 'Starting auto-gut sequence...' });
+    try {
+        // 1. Open Main Menu
+        sendCommand({ type: 'openMainMenu' });
+        await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('main'));
 
-    sendCommand({ type: 'forceMenuChoice', choice: 'Inventory', mod: 0 });
-    timeout = 0;
-    while (!state.menu_open || !state.allGameData.menu.toLowerCase().includes('inventory')) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-        timeout += 10;
-        if (timeout >= 2000) {
-            sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting for inventory menu' });
-            return;
-        }
-    }
+        // 2. Navigate to Inventory
+        sendCommand({ type: 'forceMenuChoice', choice: 'Inventory', mod: 0 });
+        await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('inventory'));
 
-    var gutIndex = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
-    sendCommand({ type: 'notification', text: 'Finding gut knife...' });
-    sendCommand({ type: 'forceMenuChoice', choice: gutIndex.name, mod: 0 });
-    timeout = 0;
-    while (!state.menu_open || !state.allGameData.menu.toLowerCase().includes('inventory')) {
-        await new Promise(resolve => setTimeout(resolve, 10));
-        timeout += 10;
-        if (timeout >= 2000) {
-            sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting for gut menu' });
-            return;
+        // 3. Find and use Gut Knife
+        const gutKnifeChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
+        if (gutKnifeChoice.index === -1) {
+            throw new Error('Gut knife not found in inventory.');
         }
-    }
+        sendCommand({ type: 'forceMenuChoice', choice: gutKnifeChoice.name, mod: 0 });
+        await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('gut')); // Assuming menu title changes to 'Gut'
 
-    var gutIndex2 = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut');
-    sendCommand({ type: 'forceMenuChoice', choice: gutIndex2.name, mod: 0 });
-    sendCommand({ type: 'notification', text: 'Gutting fish...' });
-    await new Promise(resolve => setTimeout(resolve, 10));
-    timeout = 0;
-    while (state.menu_open && state.allGameData.menu !== 'none') {
-        sendCommand({ type: 'forceMenuBack' });
-        await new Promise(resolve => setTimeout(resolve, 10));
-        timeout += 10;
-        if (timeout >= 2000) {
-            sendCommand({ type: 'notification', text: '~r~Error: Timeout waiting to close menu' });
-            return;
+        // 4. Select 'Gut All' (or similar)
+        const gutAllChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'gut'); // Often the same menu
+        if (gutAllChoice.index === -1) {
+            throw new Error("Could not find 'Gut All' option.");
+        }
+        sendCommand({ type: 'forceMenuChoice', choice: gutAllChoice.name, mod: 0 });
+        sendCommand({ type: 'notification', text: 'Gutting all fish...' });
+
+        // 5. Wait for all menus to close
+        await waitForCondition(() => !state.allGameData.menu_open, 5000); // Allow more time for gutting process
+
+        sendCommand({ type: 'notification', text: 'Auto-gut sequence finished!' });
+
+        // 6. Trigger auto-store if enabled
+        if (state.config.autoStore) {
+            setTimeout(triggerAutoStore, 500); // Short delay before starting next sequence
+        }
+
+    } catch (error) {
+        sendCommand({ type: 'notification', text: `~r~Auto-gut failed: ${error.message}` });
+        // Ensure menus are closed on failure
+        if (state.allGameData.menu_open) {
+            sendCommand({ type: 'forceMenuBack' });
         }
     }
-    sendCommand({ type: 'notification', text: 'Sequence finished!' });
 }
 
 function updateAppStatus() {
@@ -842,6 +927,7 @@ function initialize() {
             boat: 'Tropic'
         });
         fetchPotData();
+        handleInventoryChange(); // Initialize inventory cache
     } else {
         sendCommand({ type: "getData" });
     }
