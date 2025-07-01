@@ -25,7 +25,8 @@ const state = {
     },
     pinnedWindows: [],
     inventoryCache: { fish: 0, pots: 0 },
-    potBlips: []
+    potBlips: [],
+    blipsNeedUpdate: 2
 };
 
 // --- CORE LOGIC ---
@@ -121,7 +122,7 @@ async function fetchPotData() {
     potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading pot data...</td></tr>';
 
     if (state.config.apiMode === 'mock') {
-        const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 79200-10 }];
+        const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 79200 - 10 }];
         setTimeout(() => { // Simulate network delay
             handlePotData(mockResponse);
             localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now() - 79200, data: mockResponse }));
@@ -180,11 +181,13 @@ function handlePotData(potsData) {
     state.pots = newPots;
     clearPotBlips();
     updatePotDisplay();
-    updatePotBlips();
 }
 
 function addPotBlip(pot) {
-    if (state.potBlips.find(blip => blip.id === `afh_blip${pot.id}` && blip.position.x === pot.position.x && blip.position.y === pot.position.y)) return;
+    if (!state.config.activateBlips) return;
+    if (state.pots.length === 0) return;
+    if (state.potBlips.find(blip => blip.position.x === pot.position.x && blip.position.y === pot.position.y)) return;
+
     state.potBlips.push({
         id: `afh_blip${pot.id}`,
         position: pot.position,
@@ -195,6 +198,7 @@ function addPotBlip(pot) {
         isReady: pot.isReady
     });
 
+    state.blipsNeedUpdate = 0;
     sendCommand({ type: 'addBlip', id: state.potBlips[state.potBlips.length - 1].id, x: state.potBlips[state.potBlips.length - 1].position.x, y: state.potBlips[state.potBlips.length - 1].position.y });
 }
 
@@ -206,6 +210,9 @@ function clearPotBlips() {
 }
 
 function updatePotBlips() {
+    if (!state.config.activateBlips) return;
+    if (state.potBlips.length === 0) return;
+
     // add new blips
     state.potBlips.forEach(blip => {
         // sendCommand({ type: 'addBlip', id: blip.id, x: blip.position.x, y: blip.position.y });
@@ -631,6 +638,7 @@ function updatePotDisplay() {
         }
     });
 
+    
     potsToDisplay.forEach(pot => {
         const row = document.createElement('tr');
         const stateClass = `status-${pot.state.toLowerCase()}`;
@@ -649,18 +657,19 @@ function updatePotDisplay() {
         addPotBlip(pot);
     });
     // update blips only if pot state is changed
-    if (potsToDisplay.some(pot => pot.state !== state.potBlips.find(blip => blip.id === `afh_blip${pot.id}`)?.state)) {
+    potsToDisplay.forEach(pot => {
+        if (state.potBlips.length === 0) {return;}
+        if (pot.state !== state.potBlips.find(blip => blip.id === `afh_blip${pot.id}`)?.state) {
+            state.blipsNeedUpdate = 1;
+        }
+    });
+    if (state.blipsNeedUpdate === 1) {
         clearPotBlips();
-        state.potBlips = potsToDisplay.map(pot => ({
-            id: `afh_blip${pot.id}`,
-            position: pot.position,
-            type: pot.type,
-            state: pot.state,
-            yield: pot.yield,
-            age: pot.age,
-            isReady: pot.isReady
-        }));
+        state.blipsNeedUpdate = 0;
+    }
+    else if (state.blipsNeedUpdate === 0) {
         updatePotBlips();
+        state.blipsNeedUpdate = 2;
     }
 }
 
@@ -838,6 +847,7 @@ function initialize() {
     state.config.fishingPerkActive = localStorage.getItem('fishingPerkActive') === 'true';
     state.config.autoGut = localStorage.getItem('autoGut') === 'true';
     state.config.autoStore = localStorage.getItem('autoStore') === 'true';
+    state.config.activateBlips = localStorage.getItem('activateBlips') === 'true';
     state.config.autoHide = localStorage.getItem('autoHide') === 'true';
     state.config.apiMode = localStorage.getItem('apiMode') || 'mock';
     state.config.apiKey = localStorage.getItem('apiKey') || '';
@@ -849,6 +859,7 @@ function initialize() {
     document.getElementById('perk-active').checked = state.config.fishingPerkActive;
     document.getElementById('auto-gut').checked = state.config.autoGut;
     document.getElementById('auto-store').checked = state.config.autoStore;
+    document.getElementById('activate-blips').checked = state.config.activateBlips;
     document.getElementById('auto-hide').checked = state.config.autoHide;
     document.getElementById('api-mode').value = state.config.apiMode;
     document.getElementById('api-key').value = state.config.apiKey;
@@ -874,15 +885,21 @@ function initialize() {
         state.config.autoHide = document.getElementById('auto-hide').checked;
         state.config.apiMode = document.getElementById('api-mode').value;
         state.config.apiKey = document.getElementById('api-key').value;
+        state.config.activateBlips = document.getElementById('activate-blips').checked;
         localStorage.setItem('fishingPerkActive', state.config.fishingPerkActive);
         localStorage.setItem('autoGut', state.config.autoGut);
         localStorage.setItem('autoStore', state.config.autoStore);
         localStorage.setItem('autoHide', state.config.autoHide);
         localStorage.setItem('apiMode', state.config.apiMode);
         localStorage.setItem('apiKey', state.config.apiKey);
+        localStorage.setItem('activateBlips', state.config.activateBlips);
         const statusEl = document.getElementById('api-status');
         statusEl.textContent = 'Settings saved!';
         statusEl.style.backgroundColor = 'var(--success-color)';
+
+        // update blips if activate blips is changed
+        clearPotBlips();
+        updatePotDisplay();
     };
 
     const handleSortChange = () => {
@@ -911,6 +928,7 @@ function initialize() {
     document.getElementById('run-sequence-btn').onclick = runCommandSequence;
     document.getElementById('clear-blips-btn').onclick = clearPotBlips;
     document.getElementById('update-blips-btn').onclick = updatePotBlips;
+    document.getElementById('activate-blips').onchange = () => { };
     window.addEventListener("message", (event) => {
         if (event.data && event.data.data) {
             handleGameData(event.data.data);
