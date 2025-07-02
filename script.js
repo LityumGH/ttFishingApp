@@ -389,7 +389,7 @@ function checkForPotCollection() {
 
 function handleInventoryChange() {
     const newInventory = { fish: 0, pots: 0 };
-    const itemsToTrack = { 'fish_': 'fish', 'fish_pot': 'pots' };
+    const itemsToTrack = { 'fish_': 'fish', 'pot_': 'pots' };
 
     // 1. Count current items from all inventory sources
     for (const key in state.allGameData) {
@@ -453,7 +453,7 @@ async function triggerAutoStore() {
 
     try {
         sendCommand({ type: 'sendCommand', command: 'rm_trunk' });
-        sendCommand({ type: 'sendCommand', command: 'getData' });
+        sendCommand({ type: "getData" });
         await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('trunk'));
         sendCommand({ type: 'notification', text: 'Trunk opened for fish meat.' });
 
@@ -488,6 +488,7 @@ function updateWindowVisibility() {
     if (shouldBeVisible) {
         if (!state.uiVisible) {
             state.uiVisible = true;
+            sendCommand({ type: "getData" });
             document.getElementById('main-container').style.display = 'block';
         }
     } else {
@@ -661,14 +662,15 @@ function updatePotDisplay() {
         if (state.potBlips.length === 0) {return;}
         if (pot.state !== state.potBlips.find(blip => blip.id === `afh_blip${pot.id}`)?.state) {
             state.blipsNeedUpdate = 1;
-            sendCommand({ type: 'notification', text: 'Pot state changed, updating blips...' });
         }
     });
     if (state.blipsNeedUpdate === 1) {
+        sendCommand({ type: 'notification', text: 'Pot state changed, updating blips...' });
         clearPotBlips();
         state.blipsNeedUpdate = 0;
     }
     else if (state.blipsNeedUpdate === 0) {
+        sendCommand({ type: 'notification', text: 'Blips are updated...' });
         updatePotBlips();
         state.blipsNeedUpdate = 2;
     }
