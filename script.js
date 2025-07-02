@@ -427,6 +427,22 @@ function handleInventoryChange() {
         if (closestPot.distance < 15) { // Player is near a pot
             sendCommand({ type: 'notification', text: `Collected a ${closestPot.pot.type} pot!` });
             state.pots = state.pots.filter(p => p.id !== closestPot.pot.id);
+            // Update cached pot data in localStorage to reflect the removed pot
+            const cachedPotsRaw = localStorage.getItem('cachedPots');
+            if (cachedPotsRaw) {
+                try {
+                    const cachedPots = JSON.parse(cachedPotsRaw);
+                    // Remove the collected pot from cached data
+                    cachedPots.data = cachedPots.data.filter(pot => pot.id !== closestPot.pot.id);
+                    // Update the cache with the modified data
+                    localStorage.setItem('cachedPots', JSON.stringify(cachedPots));
+                } catch (e) {
+                    console.error('Error updating cached pot data:', e);
+                }
+            }
+            // Remove the blip from the list
+            state.potBlips = state.potBlips.filter(blip => blip.id !== `afh_blip${closestPot.pot.id}`);
+            sendCommand({ type: 'removeBlip', id: `afh_blip${closestPot.pot.id}` });
             updatePotDisplay();
             triggerAutoGut();
         } else { // Fish caught by other means (e.g., fishing rod)
