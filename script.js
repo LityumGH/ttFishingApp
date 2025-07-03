@@ -18,6 +18,7 @@ const state = {
         autoGut: false,
         autoStore: false,
         autoHide: false,
+        autoPlacePots: false,
         apiMode: 'mock',
         apiKey: '',
         sortBy: 'distance',
@@ -26,7 +27,13 @@ const state = {
     pinnedWindows: [],
     inventoryCache: { fish: 0, pots: 0 },
     potBlips: [],
-    blipsNeedUpdate: 2
+    blipsNeedUpdate: 2,
+    actionsRunning: {
+        autoGut: false,
+        autoStore: false,
+        autoPlacePots: false
+    },
+    playerSpawned: false
 };
 
 // --- CORE LOGIC ---
@@ -41,6 +48,21 @@ function sendCommand(command) {
         return;
     }
     window.parent.postMessage(command, "*");
+}
+
+function notifyPlayer(message, type = 'info', time = 5) {
+    const notificationTypes = {
+        success: { prefix: '~g~', icon: '' },
+        error: { prefix: '~r~', icon: '' },
+        warning: { prefix: '~y~', icon: '' },
+        info: { prefix: '~b~', icon: '' }
+    };
+    const appPrefix = '~d~[AFH]~s~';
+    const notificationType = notificationTypes[type.toLowerCase()] || notificationTypes.info;
+
+    const fullMessage = `${appPrefix}${notificationType.prefix}${notificationType.icon} ${message}`;
+
+    sendCommand({ type: 'notification', text: fullMessage });
 }
 
 function handleGameData(data) {
@@ -92,6 +114,10 @@ function handleGameData(data) {
         updateCombinedInventoryDisplay();
     }
 
+    if (state.status && state.config.autoPlacePots && state.playerSpawned) {
+        triggerAutoPlacePots();
+    }
+
     // if (data.horn !== undefined) {
     //     if (data.horn === true) {
     //         sendCommand({ type: 'notification', text: 'Horn pressed.' });
@@ -108,6 +134,87 @@ function handleGameData(data) {
 
     if (needsUiUpdate) {
         updatePotDisplay();
+    }
+}
+
+function triggerAutoPlacePots() {
+    if (state.config.autoPlacePots && !state.actionsRunning.autoPlacePots) {
+        const closestPot = findClosestPot();
+        if (200 > closestPot.distance && closestPot.distance > 130 && state.inventoryCache.pots > 0) {
+            placePotSequence();
+        }
+    }
+}
+
+async function placePotSequence() {
+    if (!state.status || !state.config.autoPlacePots || state.actionsRunning.autoPlacePots) return;
+    state.actionsRunning.autoPlacePots = true;
+    const closestPot = findClosestPot();
+    if (closestPot.distance > 130 && state.inventoryCache.pots > 0) {
+        if (!state.allGameData.menu_open) {
+            try {
+                notifyPlayer('Auto-placing pot.', 'success');
+                sendCommand({ type: 'openMainMenu' });
+                await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('menu'));
+                const inventoryChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'inventory');
+                if (inventoryChoice.index !== -1) {
+                    sendCommand({ type: 'forceMenuChoice', choice: inventoryChoice.name, mod: 0 });
+                    // notifyPlayer('Inventory opened.', 'success');
+                } else {
+                    throw new Error('Could not find \'Inventory\' option.');
+                }
+                await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('inventory'));
+                const potChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'crab pot');
+                if (potChoice.index !== -1) {
+                    sendCommand({ type: 'forceMenuChoice', choice: potChoice.name, mod: 0 });
+                    // notifyPlayer('Crab pot menu opened.', 'success');
+                } else {
+                    throw new Error('Could not find \'Crab Pot\' option.');
+                }
+                await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('crab pot'));
+                const placePotChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'place');
+                if (placePotChoice.index !== -1) {
+                    sendCommand({ type: 'forceMenuChoice', choice: placePotChoice.name, mod: 0 });
+                    // notifyPlayer('Crab pot placed.', 'success');
+                    // sleep for 1 second
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } else {
+                    throw new Error('Could not find \'Place\' option.');
+                }
+            } catch (error) {
+                notifyPlayer('Auto-placing pot failed: ' + error.message, 'error');
+            } finally {
+                setTimeout(() => {
+                    state.actionsRunning.autoPlacePots = false;
+                }, 2000);
+            }
+        } else {
+            if (state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('crab pot')) {
+                try {
+                    notifyPlayer('Auto-placing pot.', 'success');
+                    const placePotChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'place');
+                    if (placePotChoice.index !== -1) {
+                        sendCommand({ type: 'forceMenuChoice', choice: placePotChoice.name, mod: 0 });
+                        // notifyPlayer('Crab pot placed.', 'success');
+                        // sleep for 1 second
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    } else {
+                        throw new Error('Could not find \'Place\' option.');
+                    }
+                } catch (error) {
+                    notifyPlayer('Auto-placing pot failed: ' + error.message, 'error');
+                } finally {
+                    setTimeout(() => {
+                        state.actionsRunning.autoPlacePots = false;
+                    }, 2000);
+                }
+            }
+            else if (state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('inventory')) {
+                sendCommand({ type: 'forceMenuBack' });
+                notifyPlayer('Inventory was open, retrying place pot sequence', 'error');
+            }
+        }
+
     }
 }
 
@@ -157,13 +264,13 @@ async function fetchPotData() {
             statusEl.textContent = `API Error: ${response.status}`;
             statusEl.style.backgroundColor = 'var(--error-color)';
             potsTableBody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--error-color);">API Error: ${response.status}</td></tr>`;
-            sendCommand({ type: 'notification', text: `API Error: ${response.status}` });
+            notifyPlayer(`API Error: ${response.status}`, 'error');
         }
     } catch (error) {
         statusEl.textContent = 'Network Error';
         statusEl.style.backgroundColor = 'var(--error-color)';
         potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--error-color);">Network Error.</td></tr>';
-        sendCommand({ type: 'notification', text: `Fetch Error: ${error.message}` });
+        notifyPlayer(`Fetch Error: ${error.message}`, 'error');
     } finally {
         fetchBtn.disabled = false;
     }
@@ -328,14 +435,14 @@ function checkForPotCollection() {
 
     // if (closestPot.distance > 11) return;
 
-    sendCommand({ type: 'notification', text: '[DEBUG] Closest pot: ' + closestPot.pot.type + ' at ' + closestPot.distance + 'm' + ' ID: ' + closestPot.pot.id });
+    notifyPlayer('[DEBUG] Closest pot: ' + closestPot.pot.type + ' at ' + closestPot.distance + 'm' + ' ID: ' + closestPot.pot.id);
 
     if (closestPot.pot.type === 'crab') {
-        sendCommand({ type: 'notification', text: 'Crab pot collected.' });
+        notifyPlayer('Crab pot collected.', 'success');
     } else if (closestPot.pot.type === 'lobster') {
-        sendCommand({ type: 'notification', text: 'Lobster pot collected.' });
+        notifyPlayer('Lobster pot collected.', 'success');
     } else {
-        sendCommand({ type: 'notification', text: 'Seafloor pot collected.' });
+        notifyPlayer('Seafloor pot collected.', 'success');
     }
 
     // Remove the pot from the list
@@ -388,8 +495,8 @@ function checkForPotCollection() {
 }
 
 function handleInventoryChange() {
-    const newInventory = { fish: 0, pots: 0 };
-    const itemsToTrack = { 'fish_': 'fish', 'pot_': 'pots' };
+    const newInventory = { fish: 0, pots: 0, fish_pot: 0 };
+    const itemsToTrack = { 'fish_': 'fish', 'pot_': 'pots', 'fish_pot': 'fish_pot' };
 
     // 1. Count current items from all inventory sources
     for (const key in state.allGameData) {
@@ -411,7 +518,7 @@ function handleInventoryChange() {
     // Pot placement detection
     if (state.inventoryCache.pots > 0 && newInventory.pots < state.inventoryCache.pots) {
         const collectionTime = state.config.fishingPerkActive ? 11 : 22;
-        sendCommand({ type: 'notification', text: `Pot placed! Ready for collection in ${collectionTime} hours.` });
+        notifyPlayer(`Pot placed! Ready for collection in ~g~${collectionTime} hours.`, 'info');
         state.pots.push({
             id: state.pots.length + 1,
             position: state.playerPosition,
@@ -422,11 +529,18 @@ function handleInventoryChange() {
     }
 
     // New fish detection
-    if (newInventory.fish > state.inventoryCache.fish) {
+    if (state.inventoryCache.fish > 0 && newInventory.fish > state.inventoryCache.fish) {
         const closestPot = findClosestPot();
-        if (closestPot.distance < 15) { // Player is near a pot
-            sendCommand({ type: 'notification', text: `Collected a ${closestPot.pot.type} pot!` });
+        if (closestPot.distance < 15 && newInventory.fish_pot > 0) { // Player is near a pot
+            notifyPlayer(`Collected a ${closestPot.pot.type} pot!`, 'success');
+            // Remove the pot from the list
             state.pots = state.pots.filter(p => p.id !== closestPot.pot.id);
+            // Remove the blip from the list
+            state.potBlips = state.potBlips.filter(blip => blip.id !== `afh_blip${closestPot.pot.id}`);
+            sendCommand({ type: 'removeBlip', id: `afh_blip${closestPot.pot.id}` });
+            updatePotDisplay();
+            triggerAutoGut();
+
             // Update cached pot data in localStorage to reflect the removed pot
             const cachedPotsRaw = localStorage.getItem('cachedPots');
             if (cachedPotsRaw) {
@@ -435,18 +549,15 @@ function handleInventoryChange() {
                     // Remove the collected pot from cached data
                     cachedPots.data = cachedPots.data.filter(pot => pot.id !== closestPot.pot.id);
                     // Update the cache with the modified data
-                    localStorage.setItem('cachedPots', JSON.stringify(cachedPots));
+                    localStorage.setItem('cachedPots', JSON.stringify({ timestamp: cachedPots.timestamp, data: cachedPots.data }));
+                    // handlePotData(cachedPots.data);
                 } catch (e) {
                     console.error('Error updating cached pot data:', e);
                 }
             }
-            // Remove the blip from the list
-            state.potBlips = state.potBlips.filter(blip => blip.id !== `afh_blip${closestPot.pot.id}`);
-            sendCommand({ type: 'removeBlip', id: `afh_blip${closestPot.pot.id}` });
-            updatePotDisplay();
-            triggerAutoGut();
+
         } else { // Fish caught by other means (e.g., fishing rod)
-            sendCommand({ type: 'notification', text: 'New fish caught!' });
+            notifyPlayer('New fish caught!', 'success');
             triggerAutoGut();
         }
     }
@@ -457,7 +568,6 @@ function handleInventoryChange() {
 
 function triggerAutoGut() {
     if (state.config.autoGut) {
-        sendCommand({ type: 'notification', text: 'Triggering auto gut...' });
         autoGutFish();
     }
 }
@@ -465,29 +575,28 @@ function triggerAutoGut() {
 async function triggerAutoStore() {
     if (!state.status || !state.config.autoStore) return;
 
-    sendCommand({ type: 'notification', text: 'Triggering auto store...' });
+    notifyPlayer('Triggering auto store', 'info');
 
     try {
         sendCommand({ type: 'sendCommand', command: 'rm_trunk' });
         sendCommand({ type: "getData" });
         await waitForCondition(() => state.allGameData.menu_open && state.allGameData.menu?.toLowerCase().includes('trunk'));
-        sendCommand({ type: 'notification', text: 'Trunk opened for fish meat.' });
 
         const putAllChoice = findItemIndexBySubstring(state.allGameData.menu_choices, 'put all');
         if (putAllChoice.index !== -1) {
             sendCommand({ type: 'forceMenuChoice', choice: putAllChoice.name, mod: 0 });
-            sendCommand({ type: 'notification', text: 'All fish meat stored in trunk.' });
+            notifyPlayer('All fish meat stored in trunk.', 'success');
         } else {
-            sendCommand({ type: 'notification', text: '~y~Could not find \'Put All\' option.' });
+            notifyPlayer('Could not find \'Put All\' option.', 'error');
         }
 
         if (state.allGameData.menu_open) {
             sendCommand({ type: 'forceMenuBack' }); // Close the trunk menu
         }
-        sendCommand({ type: 'notification', text: 'Auto-store complete.' });
+        notifyPlayer('Auto-store complete.', 'success');
 
     } catch (error) {
-        sendCommand({ type: 'notification', text: `~r~Auto-store failed: ${error.message}` });
+        notifyPlayer(`Auto-store failed: ${error.message}`, 'error');
         // Ensure menu is closed on failure
         if (state.allGameData.menu_open) {
             sendCommand({ type: 'forceMenuBack' });
@@ -511,7 +620,7 @@ function updateWindowVisibility() {
         if (state.uiVisible) {
             state.uiVisible = false;
             document.getElementById('main-container').style.display = 'none';
-            clearPotBlips();
+            if (!state.config.activateBlips) clearPotBlips();
         }
     }
 
@@ -655,7 +764,7 @@ function updatePotDisplay() {
         }
     });
 
-    
+
     potsToDisplay.forEach(pot => {
         const row = document.createElement('tr');
         const stateClass = `status-${pot.state.toLowerCase()}`;
@@ -675,18 +784,18 @@ function updatePotDisplay() {
     });
     // update blips only if pot state is changed
     potsToDisplay.forEach(pot => {
-        if (state.potBlips.length === 0) {return;}
+        if (state.potBlips.length === 0) { return; }
         if (pot.state !== state.potBlips.find(blip => blip.id === `afh_blip${pot.id}`)?.state) {
             state.blipsNeedUpdate = 1;
         }
     });
     if (state.blipsNeedUpdate === 1) {
-        sendCommand({ type: 'notification', text: 'Pot state changed, updating blips...' });
+        notifyPlayer('Pot state changed, updating blips', 'success');
         clearPotBlips();
         state.blipsNeedUpdate = 0;
     }
     else if (state.blipsNeedUpdate === 0) {
-        sendCommand({ type: 'notification', text: 'Blips are updated...' });
+        notifyPlayer('Blips are updated', 'success');
         updatePotBlips();
         state.blipsNeedUpdate = 2;
     }
@@ -837,15 +946,17 @@ function openDebugTab(evt, tabName) {
 }
 
 async function runCommandSequence() {
-    sendCommand({ type: 'notification', text: 'Starting command sequence...' });
+    notifyPlayer('Starting command sequence');
     await autoGutFish();
 }
 
 async function autoGutFish() {
-    sendCommand({ type: 'notification', text: 'Starting auto-gut sequence...' });
-    sendCommand({ type: 'sendCommand', command: 'item gut_knife gut' });
-    await new Promise(resolve => setTimeout(resolve, 15000));
-    triggerAutoStore();
+    if (state.config.autoGut) {
+        notifyPlayer('Starting auto-gut sequence', 'info');
+        sendCommand({ type: 'sendCommand', command: 'item gut_knife gut' });
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        triggerAutoStore();
+    }
 }
 
 function updateAppStatus() {
@@ -872,6 +983,7 @@ function initialize() {
     state.config.apiKey = localStorage.getItem('apiKey') || '';
     state.config.sortBy = localStorage.getItem('sortBy') || 'distance';
     state.config.sortOrder = localStorage.getItem('sortOrder') || 'asc';
+    state.config.autoPlacePots = localStorage.getItem('autoPlacePots') === 'true';
     state.pinnedWindows = JSON.parse(localStorage.getItem('pinnedWindows') || '[]');
 
     // Apply settings to UI
@@ -885,6 +997,7 @@ function initialize() {
     document.getElementById('api-key-container').style.display = state.config.apiMode === 'real' ? 'block' : 'none';
     document.getElementById('sort-by').value = state.config.sortBy;
     document.getElementById('sort-order').value = state.config.sortOrder;
+    document.getElementById('auto-place-pots').checked = state.config.autoPlacePots;
 
     state.pinnedWindows.forEach(windowId => {
         const windowEl = document.getElementById(windowId);
@@ -905,6 +1018,7 @@ function initialize() {
         state.config.apiMode = document.getElementById('api-mode').value;
         state.config.apiKey = document.getElementById('api-key').value;
         state.config.activateBlips = document.getElementById('activate-blips').checked;
+        state.config.autoPlacePots = document.getElementById('auto-place-pots').checked;
         localStorage.setItem('fishingPerkActive', state.config.fishingPerkActive);
         localStorage.setItem('autoGut', state.config.autoGut);
         localStorage.setItem('autoStore', state.config.autoStore);
@@ -912,6 +1026,7 @@ function initialize() {
         localStorage.setItem('apiMode', state.config.apiMode);
         localStorage.setItem('apiKey', state.config.apiKey);
         localStorage.setItem('activateBlips', state.config.activateBlips);
+        localStorage.setItem('autoPlacePots', state.config.autoPlacePots);
         const statusEl = document.getElementById('api-status');
         statusEl.textContent = 'Settings saved!';
         statusEl.style.backgroundColor = 'var(--success-color)';
@@ -941,7 +1056,7 @@ function initialize() {
             const command = JSON.parse(commandText);
             sendCommand(command);
         } catch (e) {
-            sendCommand({ type: 'notification', text: 'Error: Invalid JSON in command sender.' });
+            notifyPlayer('Error: Invalid JSON in command sender.', 'error');
         }
     };
     document.getElementById('run-sequence-btn').onclick = runCommandSequence;
@@ -966,7 +1081,6 @@ function initialize() {
         }
     }, 1000);
 
-    sendCommand({ type: 'notification', text: 'Advanced Fishing Helper Initialized.' });
 
     // Load cached pot data on startup
     const cachedPotsRaw = localStorage.getItem('cachedPots');
@@ -987,7 +1101,7 @@ function initialize() {
             handlePotData(cachedPots.data);
 
         } catch (e) {
-            sendCommand({ type: 'notification', text: 'Could not load cached pot data.' });
+            notifyPlayer('Could not load cached pot data.', 'error');
         }
     }
 
@@ -1007,8 +1121,22 @@ function initialize() {
         handleInventoryChange(); // Initialize inventory cache
     } else {
         sendCommand({ type: "getData" });
+        state.playerSpawned = true;
     }
     updateAppStatus();
+    notifyPlayer('Advanced Fishing Helper Initialized.', 'success');
 }
 
-initialize();
+function delayedInitialize() {
+    if (window.parent !== window) {
+        setTimeout(() => {
+            initialize();
+        }, 30000);
+    }
+    else {
+        initialize();
+    }
+}
+
+// Initialize the app
+window.onload = delayedInitialize;
