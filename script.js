@@ -152,14 +152,8 @@ function handleGameData(data) {
 }
 function handleNotification(notification) {
     // Notification is string. It can be:
-    // - "You have collected a crab pot!"
-    // - "You have collected a lobster pot!"
-    // - "You have collected a crab!"
-    // - "You have collected a lobster!"
-    // - "You have collected a fish!"
-    // - "You have collected a fish!"
     // - "Gutted a total of X fish!"
-    if (notification.includes('Gutted')) {
+    if (notification.includes('Gutted') && store.get().config.autoStore) {
         //Trigger auto store
         triggerAutoStore();
     }
