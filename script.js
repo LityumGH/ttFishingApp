@@ -150,7 +150,20 @@ function handleGameData(data) {
         updatePotDisplay();
     }
 }
-
+function handleNotification(notification) {
+    // Notification is string. It can be:
+    // - "You have collected a crab pot!"
+    // - "You have collected a lobster pot!"
+    // - "You have collected a crab!"
+    // - "You have collected a lobster!"
+    // - "You have collected a fish!"
+    // - "You have collected a fish!"
+    // - "Gutted a total of X fish!"
+    if (notification.includes('Gutted')) {
+        //Trigger auto store
+        triggerAutoStore();
+    }
+}
 function triggerAutoPlacePots() {
     if (store.get().config.autoPlacePots && !store.get().actionsRunning.autoPlacePots) {
         const closestPot = findClosestPot();
@@ -960,8 +973,8 @@ async function autoGutFish() {
     if (store.get().config.autoGut) {
         notifyPlayer('Starting auto-gut sequence', 'info');
         sendCommand({ type: 'sendCommand', command: 'item gut_knife gut' });
-        await new Promise(resolve => setTimeout(resolve, 15000));
-        triggerAutoStore();
+        //await new Promise(resolve => setTimeout(resolve, 5000));
+        //triggerAutoStore();
     }
 }
 
@@ -1080,6 +1093,10 @@ function initialize() {
         if (event.data && event.data.data) {
             handleGameData(event.data.data);
         }
+        // Notification handling
+        if (event.data && event.data.data.notification) {
+            handleNotification(event.data.data.notification);
+        }
     });
 
     window.addEventListener('keydown', (e) => {
@@ -1144,7 +1161,7 @@ function delayedInitialize() {
     if (window.parent !== window) {
         setTimeout(() => {
             initialize();
-        }, 30000);
+        }, 1000);
     }
     else {
         initialize();
