@@ -28,7 +28,7 @@ function createFastStore(initial = {}) {
 
 const store = createFastStore({
     isFisherman: false,
-    isInBoat: false,
+    // isInBoat: false,
     uiVisible: false,
     status: false,
     playerPosition: { x: 0, y: 0 },
@@ -42,6 +42,7 @@ const store = createFastStore({
         autoStore: false,
         autoHide: false,
         autoPlacePots: false,
+        activateBlips: false,
         apiMode: 'mock',
         apiKey: '',
         sortBy: 'distance',
@@ -106,7 +107,6 @@ function handleGameData(data) {
 
     if (data.vehicleClass !== undefined || data.vehicleName !== undefined) {
         const isInBoat = data.vehicleClass === 14 && data.vehicleName.toLowerCase() === data.boat.toLowerCase();
-        store.set({ isInBoat });
         document.getElementById('vehicle-name').textContent = isInBoat ? (data.vehicleName || 'Unknown Boat') : 'N/A';
     }
 
@@ -132,9 +132,14 @@ function handleGameData(data) {
         document.getElementById('forecast-weather').textContent = `${forecastInfo.text} ${forecastInfo.icon} (+${forecastInfo.bonus}% 🎣)`;
     }
 
-    const inventoryKeys = Object.keys(data).filter(k => k.startsWith('inventory') || k.startsWith('chest_'));
-    if (inventoryKeys.length > 0) {
+    //const inventoryKeys = Object.keys(data).filter(k => k.startsWith('inventory') || k.startsWith('chest_'));
+    
+    // if inventory is changed, update the inventory
+    if (data.inventory !== undefined ) {
         handleInventoryChange();
+    }
+
+    if (data.s !== undefined) {
         updateCombinedInventoryDisplay();
     }
 
@@ -329,10 +334,14 @@ function addPotBlip(pot) {
         isReady: pot.isReady
     };
     sendCommand({ type: 'addBlip', id: newBlip.id, x: newBlip.position.x, y: newBlip.position.y });
+    store.set({ blipsNeedUpdate: 0 });
     store.set({ potBlips: [...store.get().potBlips, newBlip] });
 }
 
 function clearPotBlips() {
+    store.get().potBlips.forEach(blip => {  
+        sendCommand({ type: 'removeBlip', id: blip.id });
+    });
     store.set({ potBlips: [] });
 }
 
@@ -706,6 +715,7 @@ function updatePotDisplay() {
     const maxYield = 138;
     const collectionTimePerk = 11 * 3600;
     const collectionTimeNoPerk = 22 * 3600;
+    const oneHour = 3600;
 
     const potsToDisplay = store.get().pots.map(pot => {
         let potYield, potState;
@@ -715,18 +725,18 @@ function updatePotDisplay() {
 
         if (store.get().config.fishingPerkActive) {
             const hourlyRate = maxYield / 11;
-            potYield = Math.min(maxYield, Math.floor((pot.age / 3600) * hourlyRate));
+            potYield = Math.min(maxYield, Math.floor((pot.age / oneHour) * hourlyRate));
             potState = isReadyForCollection ? 'Ready' : 'Soaking';
         } else {
             const hourlyRate = maxYield / 22;
-            const peakCapacityTimeSeconds = 22 * 3600;
-            const degradationStartTimeSeconds = peakCapacityTimeSeconds + (24 * 3600); // 46 hours
-            const degradationIntervalSeconds = 12 * 3600; // 12 hours
+            const peakCapacityTimeSeconds = 22 * oneHour;
+            const degradationStartTimeSeconds = peakCapacityTimeSeconds + (24 * oneHour); // 46 hours
+            const degradationIntervalSeconds = 12 * oneHour; // 12 hours
             const degradationSteps = 5; // 5 steps to reach 50% degradation
             const degradationPerStep = (maxYield * 0.5) / degradationSteps; // 10% of max yield (13.8)
 
             if (pot.age <= peakCapacityTimeSeconds) {
-                potYield = Math.floor((pot.age / 3600) * hourlyRate);
+                potYield = Math.floor((pot.age / oneHour) * hourlyRate);
                 potState = 'Soaking';
             } else if (pot.age <= degradationStartTimeSeconds) {
                 potYield = maxYield;
@@ -987,17 +997,19 @@ function initialize() {
     document.querySelectorAll('.window').forEach(makeDraggable);
 
     // Load settings
-    store.get().config.fishingPerkActive = localStorage.getItem('fishingPerkActive') === 'true';
-    store.get().config.autoGut = localStorage.getItem('autoGut') === 'true';
-    store.get().config.autoStore = localStorage.getItem('autoStore') === 'true';
-    store.get().config.activateBlips = localStorage.getItem('activateBlips') === 'true';
-    store.get().config.autoHide = localStorage.getItem('autoHide') === 'true';
-    store.get().config.apiMode = localStorage.getItem('apiMode') || 'mock';
-    store.get().config.apiKey = localStorage.getItem('apiKey') || '';
-    store.get().config.sortBy = localStorage.getItem('sortBy') || 'distance';
-    store.get().config.sortOrder = localStorage.getItem('sortOrder') || 'asc';
-    store.get().config.autoPlacePots = localStorage.getItem('autoPlacePots') === 'true';
-    store.get().pinnedWindows = JSON.parse(localStorage.getItem('pinnedWindows') || '[]');
+    store.set({ config: {
+        fishingPerkActive: localStorage.getItem('fishingPerkActive') === 'true',
+        autoGut: localStorage.getItem('autoGut') === 'true',
+        autoStore: localStorage.getItem('autoStore') === 'true',
+        activateBlips: localStorage.getItem('activateBlips') === 'true',
+        autoHide: localStorage.getItem('autoHide') === 'true',
+        apiMode: localStorage.getItem('apiMode') || 'mock',
+        apiKey: localStorage.getItem('apiKey') || '',
+        sortBy: localStorage.getItem('sortBy') || 'distance',
+        sortOrder: localStorage.getItem('sortOrder') || 'asc',
+        autoPlacePots: localStorage.getItem('autoPlacePots') === 'true'
+    }});
+    store.set({ pinnedWindows: JSON.parse(localStorage.getItem('pinnedWindows') || '[]') }) ;
 
     // Apply settings to UI
     document.getElementById('perk-active').checked = store.get().config.fishingPerkActive;
@@ -1028,6 +1040,7 @@ function initialize() {
             fishingPerkActive: document.getElementById('perk-active').checked,
             autoGut: document.getElementById('auto-gut').checked,
             autoStore: document.getElementById('auto-store').checked,
+            activateBlips: document.getElementById('activate-blips').checked,
             autoHide: document.getElementById('auto-hide').checked,
             apiMode: document.getElementById('api-mode').value,
             apiKey: document.getElementById('api-key').value,
@@ -1038,6 +1051,7 @@ function initialize() {
         localStorage.setItem('fishingPerkActive', store.get().config.fishingPerkActive);
         localStorage.setItem('autoGut', store.get().config.autoGut);
         localStorage.setItem('autoStore', store.get().config.autoStore);
+        localStorage.setItem('activateBlips', store.get().config.activateBlips);
         localStorage.setItem('autoHide', store.get().config.autoHide);
         localStorage.setItem('apiMode', store.get().config.apiMode);
         localStorage.setItem('apiKey', store.get().config.apiKey);
@@ -1056,6 +1070,7 @@ function initialize() {
 
     const handleSortChange = () => {
         store.set({ config: {
+            ...store.get().config,
             sortBy: document.getElementById('sort-by').value,
             sortOrder: document.getElementById('sort-order').value
         } });
