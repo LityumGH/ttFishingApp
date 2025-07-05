@@ -284,7 +284,6 @@ button:hover {
 
 .status-degraded {
     color: var(--degraded-color);
-    font-weight: bold;
 }
 
 .status-degrading {
@@ -293,7 +292,6 @@ button:hover {
 
 .status-ready {
     color: var(--ready-color);
-    font-weight: bold;
 }
 
 #pots-table td {
