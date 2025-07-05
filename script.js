@@ -195,9 +195,17 @@ function handleNotification(notification) {
 
     if (notification.includes('Pot placed!')) {
         // Pot placement detection
-        const collectionTime = store.get().config.fishingPerkActive ? 11 : 22;
+        // collection time forrmula Math.ceil(100 / 5) + 2 but we need to cap it at 22 hours
+        const fishingLevel = Math.floor((Math.sqrt(1 + 8 * store.get().fishingExp / 5) - 1) / 2);
+        var collectionTime = Math.min(Math.ceil(fishingLevel / 5) + 2, 22);
+        collectionTime = store.get().config.fishingPerkActive ? collectionTime / 2 : collectionTime;
         notifyPlayer(`Pot placed! Ready for collection in ~g~${collectionTime} hours`, 'info');
-        store.set({ pots: [...store.get().pots, { id: store.get().pots.length + 1, position: store.get().playerPosition, age: 0, type: 'crab' }] });
+        // generate a pot id from 1 to 40. If the pot id is already in the array, go to the next one.
+        var potId = 1;
+        while (store.get().pots.some(pot => pot.id === potId)) {
+            potId++;
+        }
+        store.set({ pots: [...store.get().pots, { id: potId, position: store.get().playerPosition, age: 0, type: 'crab' }] });
         updatePotDisplay();
     }
 
@@ -312,7 +320,7 @@ async function fetchPotData() {
     potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading pot data...</td></tr>';
 
     if (store.get().config.apiMode === 'mock') {
-        const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 79200 - 10 }];
+        const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 250000 - 10 }];
         setTimeout(() => { // Simulate network delay
             handlePotData(mockResponse);
             localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now() - 79200, data: mockResponse }));
@@ -830,57 +838,52 @@ function updatePotDisplay() {
     const oneHour = 3600;
 
     const potsToDisplay = store.get().pots.map(pot => {
-        let potYield, potState;
-        const isReadyForCollection = store.get().config.fishingPerkActive
-            ? pot.age >= collectionTimePerk
-            : pot.age >= collectionTimeNoPerk;
-
-        if (store.get().config.fishingPerkActive) {
-            const hourlyRate = maxYield / 11;
-            potYield = Math.min(maxYield, Math.floor((pot.age / oneHour) * hourlyRate));
-            potState = isReadyForCollection ? 'Ready' : 'Soaking';
+        const { fishingPerkActive } = store.get().config;
+        const hours = pot.age / oneHour;
+        const level = Math.floor((Math.sqrt(1 + 8 * store.get().fishingExp / 5) - 1) / 2);
+        const peakHours = Math.ceil(level / 5) + 2;
+        const isReadyForCollection = hours >= (fishingPerkActive ? peakHours / 2 : peakHours);
+    
+        let yieldHours;
+    
+        if (fishingPerkActive) {
+            yieldHours = Math.min(hours * 2, peakHours);
         } else {
-            const hourlyRate = maxYield / 22;
-            const peakCapacityTimeSeconds = 22 * oneHour;
-            const degradationStartTimeSeconds = peakCapacityTimeSeconds + (24 * oneHour); // 46 hours
-            const degradationIntervalSeconds = 12 * oneHour; // 12 hours
-            const degradationSteps = 5; // 5 steps to reach 50% degradation
-            const degradationPerStep = (maxYield * 0.5) / degradationSteps; // 10% of max yield (13.8)
-
-            if (pot.age <= peakCapacityTimeSeconds) {
-                potYield = Math.floor((pot.age / oneHour) * hourlyRate);
-                potState = 'Soaking';
-            } else if (pot.age <= degradationStartTimeSeconds) {
-                potYield = maxYield;
-                potState = 'Ready';
+            if (hours > peakHours) {
+                const degraded = Math.max(0, -1 + Math.floor((hours - peakHours) / 12));
+                yieldHours = Math.max(Math.ceil(peakHours / 2), peakHours - degraded);
             } else {
-                const timeSinceDegradationStart = pot.age - degradationStartTimeSeconds;
-                const degradationPeriods = Math.floor(timeSinceDegradationStart / degradationIntervalSeconds);
-
-                if (degradationPeriods > 0) {
-                    const totalDegradationAmount = degradationPeriods * degradationPerStep;
-                    potYield = maxYield - totalDegradationAmount;
-                    potYield = Math.max(maxYield * 0.5, potYield); // Cap at 50% loss
-                } else {
-                    potYield = maxYield;
-                }
-
-                if (potYield <= maxYield * 0.5) {
-                    potState = 'Degraded';
-                } else {
-                    potState = 'Degrading';
-                }
+                yieldHours = hours;
             }
         }
-
+    
+        const hourlyRate = maxYield / peakHours;
+        const potYield = Math.floor(yieldHours * hourlyRate);
+    
+        let potState;
+        if (fishingPerkActive) {
+            potState = isReadyForCollection ? 'Ready' : 'Soaking';
+        } else {
+            if (hours <= peakHours) {
+                potState = 'Soaking';
+            } else if (yieldHours === peakHours) {
+                potState = 'Ready';
+            } else if (yieldHours <= peakHours / 2) {
+                potState = 'Degraded';
+            } else {
+                potState = 'Degrading';
+            }
+        }
+    
         return {
             ...pot,
             isReady: isReadyForCollection,
             state: potState,
-            yield: Math.floor(potYield),
+            yield: potYield,
             distance: calculateDistance(store.get().playerPosition, pot.position)
         };
     });
+    
 
     // Sorting logic
     potsToDisplay.sort((a, b) => {
