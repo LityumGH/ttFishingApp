@@ -158,6 +158,13 @@ function handleNotification(notification) {
         return;
     }
 
+    /*if (!store.get().playerSpawned) {
+        if (notification.includes('Welcome. Press M to use the menu.')) {
+            store.set({ playerSpawned: true });
+        }
+        return;
+    }*/
+
     // Notification is string. It can be:
     // - "Gutted a total of X fish!"
     if (notification.includes('Gutted') && store.get().config.autoStore) {
@@ -166,11 +173,14 @@ function handleNotification(notification) {
     }
 
 
-    if (notification.includes('Fish:') && !notification.toLowerCase().includes('meat') && store.get().config.autoGut) {
+    if (notification.includes('Fish:') && !notification.toLowerCase().includes('meat')) {
         //Trigger auto gut
         notifyPlayer('New fish caught!', 'success');
-        triggerAutoGut();
-        if (notification.toLowerCase().includes('crab')) {
+        if (store.get().config.autoGut) {
+            triggerAutoGut();
+        }
+        notifyPlayer('inventoryCache.fish_pot: ' + store.get().inventoryCache.fish_pot, 'warning');
+        if (store.get().inventoryCache.fish_pot > 0) {
             const closestPot = findClosestPot();
             if (closestPot.distance < 15 && store.get().inventoryCache.fish_pot > 0) {
                 notifyPlayer(`Collected a ${closestPot.pot.type} pot!`, 'success');
@@ -228,6 +238,9 @@ async function placePotSequence() {
         if (!store.get().allGameData.menu_open) {
             try {
                 notifyPlayer('Auto-placing pot.', 'success');
+                if (store.get().config.autoStore) {
+                    await waitForCondition(() => !store.get().allGameData.menu_open);
+                }
                 sendCommand({ type: 'openMainMenu' });
                 await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('menu'));
                 const inventoryChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'inventory');
@@ -459,7 +472,7 @@ function findClosestPot() {
     }, { pot: null, distance: Infinity });
 }
 
-function findItemIndexBySubstring(menuChoicesData, searchString) {
+function findItemIndexBySubstring(menuChoicesData, searchString, excludeStrings) {
     if (!menuChoicesData) {
         return { index: -1, name: null };
     }
@@ -473,7 +486,12 @@ function findItemIndexBySubstring(menuChoicesData, searchString) {
 
         const itemIndex = choices.findIndex(item => {
             if (Array.isArray(item) && typeof item[0] === 'string') {
-                return item[0].toLowerCase().includes(searchString.toLowerCase());
+                if (excludeStrings && excludeStrings.some(excludeString => item[0].toLowerCase().includes(excludeString.toLowerCase()))) {
+                    return false;
+                }
+                else {
+                    return item[0].toLowerCase().includes(searchString.toLowerCase());
+                }
             }
             return false;
         });
@@ -674,7 +692,67 @@ async function triggerAutoStore() {
         } else {
             notifyPlayer('Could not find \'Put All\' option.', 'error');
         }
+        await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('trunk'));
+        // Take all pot from trunk
+        const chestKey = Object.keys(store.get().allGameData).filter(k => k.includes(store.get().allGameData.chest));
+        if (chestKey.length > 0 && chestKey[0].startsWith('chest_')) {
+            const chestData = JSON.parse(store.get().allGameData[chestKey[0]]);
+            const chestItems = Object.keys(chestData).filter(k => k.startsWith('pot_'));
+            if (chestItems.length > 0) {
+                for (const item of chestItems) {
+                    if (item.includes('pot_')) {
+                        notifyPlayer(`Taking pots from trunk.1`, 'info');
 
+                        const takeChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'Take', ['Weightless', 'Repeat']);
+                        if (takeChoice.index !== -1) {
+                            sendCommand({ type: 'forceMenuChoice', choice: takeChoice.name, mod: -1 });
+                        }
+                        await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('take'));
+                        
+                        const takePotChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'pot');
+                        if (takePotChoice.index !== -1) {
+                            sendCommand({ type: 'forceMenuChoice', choice: takePotChoice.name, mod: -1 });
+                        }
+                        else {
+                            notifyPlayer('Could not find \'pot\' option in trunk.', 'error');
+                        }
+                    }
+                }
+            }
+            else {
+                // Take pots from trunk if pots are found in inventory
+                const invKey = Object.keys(store.get().allGameData).filter(k => k.startsWith('inventory'));
+                if (invKey.length > 0) {
+                    const invData = JSON.parse(store.get().allGameData[invKey[0]]);
+                    const invItems = Object.keys(invData).filter(k => k.startsWith('pot_'));
+                    if (invItems.length > 0) {
+                        for (const item of invItems) {
+                            if (item.includes('pot_')) {
+                                notifyPlayer(`Taking pots from trunk.2`, 'info');
+        
+                                const takeChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'Take', ['Weightless', 'Repeat']);
+                                if (takeChoice.index !== -1) {
+                                    sendCommand({ type: 'forceMenuChoice', choice: takeChoice.name, mod: -1 });
+                                }
+                                await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('take'));
+                                
+                                const takePotChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'pot');
+                                if (takePotChoice.index !== -1) {
+                                    sendCommand({ type: 'forceMenuChoice', choice: takePotChoice.name, mod: -1 });
+                                }
+                                else {
+                                    notifyPlayer('Could not find \'pot\' option in trunk.', 'error');
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else {
+            notifyPlayer('Could not find trunk data.', 'error');
+        }
+        await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('trunk'));
         if (store.get().allGameData.menu_open) {
             sendCommand({ type: 'forceMenuBack' }); // Close the trunk menu
         }
@@ -1033,7 +1111,41 @@ function openDebugTab(evt, tabName) {
 
 async function runCommandSequence() {
     notifyPlayer('Starting command sequence');
-    await autoGutFish();
+    await takePotFromTrunk();
+}
+
+async function takePotFromTrunk() {
+    // Take all pot from trunk
+    const chestKey = Object.keys(store.get().allGameData).filter(k => k.includes(store.get().allGameData.chest));
+    if (chestKey.length > 0 && chestKey[0].startsWith('chest_')) {
+        const chestData = JSON.parse(store.get().allGameData[chestKey[0]]);
+        const chestItems = Object.keys(chestData).filter(k => k.startsWith('pot_'));
+        if (chestItems.length > 0) {
+            for (const item of chestItems) {
+                if (item.includes('pot_')) {
+                    notifyPlayer(`Taking ${item} from trunk.`, 'info');
+
+                    const takeChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'Take', ['Weightless', 'Repeat']);
+                    notifyPlayer('takeChoice.name: ' + takeChoice.name, 'warning');
+                    if (takeChoice.index !== -1) {
+                        sendCommand({ type: 'forceMenuChoice', choice: takeChoice.name, mod: -1 });
+                    }
+                    await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('take'));
+                    
+                    const takePotChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'pot');
+                    notifyPlayer('takePotChoice.name: ' + takePotChoice.name, 'warning');
+                    if (takePotChoice.index !== -1) {
+                        sendCommand({ type: 'forceMenuChoice', choice: takePotChoice.name, mod: -1 });
+                    }
+                    else {
+                        notifyPlayer('Could not find \'pot\' option in trunk.', 'error');
+                    }
+                }
+            }
+        }
+        await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('trunk'));
+        sendCommand({ type: 'forceMenuBack' });
+    }
 }
 
 async function autoGutFish() {
