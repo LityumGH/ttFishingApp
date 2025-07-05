@@ -55,7 +55,8 @@ const store = createFastStore({
     actionsRunning: {
         autoGut: false,
         autoStore: false,
-        autoPlacePots: false
+        autoPlacePots: false,
+        potCollection: false
     },
     playerSpawned: false
 });
@@ -151,6 +152,7 @@ function handleGameData(data) {
         updatePotDisplay();
     }
 }
+
 function handleNotification(notification) {
     if (notification.includes('[AFH]')) return;
     if (notification.includes('Used')) {
@@ -174,39 +176,19 @@ function handleNotification(notification) {
 
 
     if (notification.includes('Fish:') && !notification.toLowerCase().includes('meat')) {
+        
+        notifyPlayer('New fish detected!', 'info');
+
         //Trigger auto gut
-        notifyPlayer('New fish caught!', 'success');
         if (store.get().config.autoGut) {
             triggerAutoGut();
         }
-        notifyPlayer('inventoryCache.fish_pot: ' + store.get().inventoryCache.fish_pot, 'warning');
-        if (store.get().inventoryCache.fish_pot > 0) {
-            const closestPot = findClosestPot();
-            if (closestPot.distance < 15 && store.get().inventoryCache.fish_pot > 0) {
-                notifyPlayer(`Collected a ${closestPot.pot.type} pot!`, 'success');
-                // Remove the pot from the list
-                store.set({ pots: store.get().pots.filter(p => p.id !== closestPot.pot.id) });
-                // Remove the blip from the list
-                if (store.get().config.activateBlips) {
-                    store.set({ potBlips: store.get().potBlips.filter(blip => blip.id !== `afh_blip${closestPot.pot.id}`) });
-                    sendCommand({ type: 'removeBlip', id: `afh_blip${closestPot.pot.id}` });
-                }
-                updatePotDisplay();
-
-                // Update cached pot data in localStorage to reflect the removed pot
-                const cachedPotsRaw = localStorage.getItem('cachedPots');
-                if (cachedPotsRaw) {
-                    try {
-                        const cachedPots = JSON.parse(cachedPotsRaw);
-                        // Remove the collected pot from cached data
-                        cachedPots.data = cachedPots.data.filter(pot => pot.id !== closestPot.pot.id);
-                        // Update the cache with the modified data
-                        localStorage.setItem('cachedPots', JSON.stringify({ timestamp: cachedPots.timestamp, data: cachedPots.data }));
-                        // handlePotData(cachedPots.data);
-                    } catch (e) {
-                        // console.error('Error updating cached pot data:', e);
-                    }
-                }
+        
+        if (notification.includes('Crab')) {
+            const closestPot = findClosestPot();    
+            if (closestPot.distance < 11) {
+                notifyPlayer('Crab pot collected flag set', 'warning');
+                store.set({ actionsRunning: { ...store.get().actionsRunning, potCollection: true } });
             }
         }
     }
@@ -224,7 +206,7 @@ function handleNotification(notification) {
 function triggerAutoPlacePots() {
     if (store.get().config.autoPlacePots && !store.get().actionsRunning.autoPlacePots) {
         const closestPot = findClosestPot();
-        if (200 > closestPot.distance && closestPot.distance > 130 && store.get().inventoryCache.pots > 0) {
+        if (200 > closestPot.distance && closestPot.distance > 124 && store.get().inventoryCache.pots > 0) {
             placePotSequence();
         }
     }
@@ -234,7 +216,7 @@ async function placePotSequence() {
     if (!store.get().status || !store.get().config.autoPlacePots || store.get().actionsRunning.autoPlacePots) return;
     store.set({ actionsRunning: { ...store.get().actionsRunning, autoPlacePots: true } });
     const closestPot = findClosestPot();
-    if (closestPot.distance > 130 && store.get().inventoryCache.pots > 0) {
+    if (closestPot.distance > 124 && store.get().inventoryCache.pots > 0) {
         if (!store.get().allGameData.menu_open) {
             try {
                 notifyPlayer('Auto-placing pot.', 'success');
@@ -620,29 +602,21 @@ function handleInventoryChange() {
             } catch (e) { /* Ignore parse errors */ }
         }
     }
-    // console.log('New inventory data:', newInventory);
-    // 2. Compare with cache and react to changes
-    // Pot placement detection
-    /*
-    if (store.get().inventoryCache.pots > 0 && newInventory.pots < store.get().inventoryCache.pots) {
-        const collectionTime = store.get().config.fishingPerkActive ? 11 : 22;
-        notifyPlayer(`Pot placed! Ready for collection in ~g~${collectionTime} hours.`, 'info');
-        store.set({ pots: [...store.get().pots, { id: store.get().pots.length + 1, position: store.get().playerPosition, age: 0, type: 'crab' }] });
-        updatePotDisplay();
-    }
 
-    // New fish detection
-    if (store.get().inventoryCache.fish > 0 && newInventory.fish > store.get().inventoryCache.fish) {
+    // notifyPlayer('handleInventoryChange newInventory.fish_pot: ' + newInventory.fish_pot + ' potCollection: ' + store.get().actionsRunning.potCollection, 'warning');
+
+    if (newInventory.fish_pot > 0 && store.get().actionsRunning.potCollection) {
         const closestPot = findClosestPot();
-        if (closestPot.distance < 15 && newInventory.fish_pot > 0) { // Player is near a pot
+        if (closestPot.distance < 25) {
             notifyPlayer(`Collected a ${closestPot.pot.type} pot!`, 'success');
             // Remove the pot from the list
             store.set({ pots: store.get().pots.filter(p => p.id !== closestPot.pot.id) });
             // Remove the blip from the list
-            store.set({ potBlips: store.get().potBlips.filter(blip => blip.id !== `afh_blip${closestPot.pot.id}`) });
-            sendCommand({ type: 'removeBlip', id: `afh_blip${closestPot.pot.id}` });
+            if (store.get().config.activateBlips) {
+                store.set({ potBlips: store.get().potBlips.filter(blip => blip.id !== `afh_blip${closestPot.pot.id}`) });
+                sendCommand({ type: 'removeBlip', id: `afh_blip${closestPot.pot.id}` });
+            }
             updatePotDisplay();
-            //triggerAutoGut();
 
             // Update cached pot data in localStorage to reflect the removed pot
             const cachedPotsRaw = localStorage.getItem('cachedPots');
@@ -655,15 +629,12 @@ function handleInventoryChange() {
                     localStorage.setItem('cachedPots', JSON.stringify({ timestamp: cachedPots.timestamp, data: cachedPots.data }));
                     // handlePotData(cachedPots.data);
                 } catch (e) {
-                    console.error('Error updating cached pot data:', e);
+                    // console.error('Error updating cached pot data:', e);
                 }
             }
-
-        } else { // Fish caught by other means (e.g., fishing rod)
-            notifyPlayer('New fish caught!', 'success');
-            //triggerAutoGut();
         }
-    }*/
+        store.set({ actionsRunning: { ...store.get().actionsRunning, potCollection: false } });
+    }
 
     // 3. Update cache for the next check
     store.set({ inventoryCache: newInventory });

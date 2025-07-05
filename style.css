@@ -20,7 +20,6 @@ body {
     overflow: hidden;
     margin: 0;
     padding: 0;
-    user-select: none;
 }
 
 #main-container {
@@ -136,7 +135,7 @@ body {
 }
 
 #about-window {
-    top: 450px;
+    top: 490px;
     right: 20px;
     width: 250px;
 }
