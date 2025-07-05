@@ -320,7 +320,7 @@ async function fetchPotData() {
     potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading pot data...</td></tr>';
 
     if (store.get().config.apiMode === 'mock') {
-        const mockResponse = [{ "position": { "x": 4890.92, "z": 0.16, "y": -5149.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4766.66, "z": 0.17, "y": -5172.90 }, "type": "lobster", "age": 250000 - 10 }];
+        const mockResponse = [{ "position": { "x": 4815, "z": 0.16, "y": -5152.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4690, "z": 0.17, "y": -5187.90 }, "type": "crab", "age": 82000 }, { "position": { "x": 4571, "z": 0.16, "y": -5237.00 }, "type": "crab", "age": 250000 }, { "position": { "x": 4437, "z": 0.16, "y": -5288.00 }, "type": "crab", "age": 900000 }];
         setTimeout(() => { // Simulate network delay
             handlePotData(mockResponse);
             localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now() - 79200, data: mockResponse }));
