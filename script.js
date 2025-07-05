@@ -49,7 +49,7 @@ const store = createFastStore({
         sortOrder: 'asc'
     },
     pinnedWindows: [],
-    inventoryCache: { fish: 0, pots: 0 },
+    inventoryCache: { fish: 0, pots: 0, fish_pot: 0 },
     potBlips: [],
     blipsNeedUpdate: 2,
     actionsRunning: {
@@ -113,6 +113,10 @@ function handleGameData(data) {
     if (data.pos_x !== undefined && data.pos_y !== undefined) {
         store.set({ playerPosition: { x: data.pos_x, y: data.pos_y } });
         needsUiUpdate = true;
+
+        if (store.get().status && store.get().config.autoPlacePots && store.get().playerSpawned) {
+            triggerAutoPlacePots();
+        }
     }
 
     if (data['exp_farming_fishing'] !== undefined) {
@@ -135,12 +139,8 @@ function handleGameData(data) {
     const inventoryKeys = Object.keys(data).filter(k => k.startsWith('inventory') || k.startsWith('chest_'));
     // if inventory is changed, update the inventory
     if (inventoryKeys.length > 0) {
-        // handleInventoryChange();
+        handleInventoryChange();
         updateCombinedInventoryDisplay();
-    }
-
-    if (store.get().status && store.get().config.autoPlacePots && store.get().playerSpawned) {
-        triggerAutoPlacePots();
     }
 
     if (data.focused !== undefined || data.pinned !== undefined) {
@@ -154,7 +154,7 @@ function handleGameData(data) {
 function handleNotification(notification) {
     if (notification.includes('[AFH]')) return;
     if (notification.includes('Used')) {
-        notifyPlayer('U-s-e-d item!', 'error');
+        // notifyPlayer('U-s-e-d item!', 'error');
         return;
     }
 
@@ -201,14 +201,12 @@ function handleNotification(notification) {
         }
     }
 
-    if (notification.toLowerCase().includes('placed') && notification.toLowerCase().includes('pot')) {
+    if (notification.includes('Pot placed!')) {
         // Pot placement detection
-        if (store.get().inventoryCache.pots > 0 && newInventory.pots < store.get().inventoryCache.pots) {
-            const collectionTime = store.get().config.fishingPerkActive ? 11 : 22;
-            notifyPlayer(`Pot placed! Ready for collection in ~g~${collectionTime} hours.`, 'info');
-            store.set({ pots: [...store.get().pots, { id: store.get().pots.length + 1, position: store.get().playerPosition, age: 0, type: 'crab' }] });
-            updatePotDisplay();
-        }
+        const collectionTime = store.get().config.fishingPerkActive ? 11 : 22;
+        notifyPlayer(`Pot placed! Ready for collection in ~g~${collectionTime} hours`, 'info');
+        store.set({ pots: [...store.get().pots, { id: store.get().pots.length + 1, position: store.get().playerPosition, age: 0, type: 'crab' }] });
+        updatePotDisplay();
     }
 
 }
@@ -288,9 +286,23 @@ async function placePotSequence() {
             else if (store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('inventory')) {
                 sendCommand({ type: 'forceMenuBack' });
                 notifyPlayer('Inventory was open, retrying place pot sequence', 'error');
+                setTimeout(() => {
+                    store.set({ actionsRunning: { ...store.get().actionsRunning, autoPlacePots: false } });
+                }, 2000);
+            }
+            else {
+                notifyPlayer('Auto-placing pot failed.', 'error');
+                setTimeout(() => {
+                    store.set({ actionsRunning: { ...store.get().actionsRunning, autoPlacePots: false } });
+                }, 2000);
             }
         }
-
+    }
+    else {
+        notifyPlayer('No pots to place.', 'error');
+        setTimeout(() => {
+            store.set({ actionsRunning: { ...store.get().actionsRunning, autoPlacePots: false } });
+        }, 2000);
     }
 }
 
@@ -577,7 +589,7 @@ function handleInventoryChange() {
     const itemsToTrack = { 'fish_': 'fish', 'pot_': 'pots', 'fish_pot': 'fish_pot' };
     // 1. Count current items from all inventory sources
     for (const key in store.get().allGameData) {
-        if (key.startsWith('inventory') || key.startsWith('chest_')) {
+        if (key.startsWith('inventory')) {
             try {
                 const inventory = JSON.parse(store.get().allGameData[key]);
                 for (const itemName in inventory) {
@@ -590,9 +602,10 @@ function handleInventoryChange() {
             } catch (e) { /* Ignore parse errors */ }
         }
     }
-    console.log('New inventory data:', newInventory);
+    // console.log('New inventory data:', newInventory);
     // 2. Compare with cache and react to changes
     // Pot placement detection
+    /*
     if (store.get().inventoryCache.pots > 0 && newInventory.pots < store.get().inventoryCache.pots) {
         const collectionTime = store.get().config.fishingPerkActive ? 11 : 22;
         notifyPlayer(`Pot placed! Ready for collection in ~g~${collectionTime} hours.`, 'info');
@@ -632,7 +645,7 @@ function handleInventoryChange() {
             notifyPlayer('New fish caught!', 'success');
             //triggerAutoGut();
         }
-    }
+    }*/
 
     // 3. Update cache for the next check
     store.set({ inventoryCache: newInventory });
@@ -1027,9 +1040,7 @@ async function autoGutFish() {
     if (store.get().config.autoGut) {
         notifyPlayer('Starting auto-gut sequence', 'info');
         sendCommand({ type: 'sendCommand', command: 'item gut_knife gut' });
-        //await new Promise(resolve => setTimeout(resolve, 5000));
-        //triggerAutoStore();
-        store.set({ inventoryCache: { fish: 0, fish_pot: 0 } });
+        store.set({ inventoryCache: { ...store.get().inventoryCache, fish: 0, fish_pot: 0 } });
     }
 }
 
