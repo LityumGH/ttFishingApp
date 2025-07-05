@@ -106,7 +106,7 @@ function handleGameData(data) {
     }
 
     if (data.vehicleClass !== undefined || data.vehicleName !== undefined) {
-        const isInBoat = data.vehicleClass === 14 && data.vehicleName.toLowerCase() === data.boat.toLowerCase();
+        const isInBoat = data.vehicleClass === 14 && data.vehicleName.toLowerCase() === data.boat.toLowerCase() && data.vehicle !== 'onFoot';
         document.getElementById('vehicle-name').textContent = isInBoat ? (data.vehicleName || 'Unknown Boat') : 'N/A';
     }
 
@@ -132,14 +132,10 @@ function handleGameData(data) {
         document.getElementById('forecast-weather').textContent = `${forecastInfo.text} ${forecastInfo.icon} (+${forecastInfo.bonus}% 🎣)`;
     }
 
-    //const inventoryKeys = Object.keys(data).filter(k => k.startsWith('inventory') || k.startsWith('chest_'));
-    
+    const inventoryKeys = Object.keys(data).filter(k => k.startsWith('inventory') || k.startsWith('chest_'));
     // if inventory is changed, update the inventory
-    if (data.inventory !== undefined ) {
-        handleInventoryChange();
-    }
-
-    if (data.s !== undefined) {
+    if (inventoryKeys.length > 0) {
+        // handleInventoryChange();
         updateCombinedInventoryDisplay();
     }
 
@@ -156,13 +152,67 @@ function handleGameData(data) {
     }
 }
 function handleNotification(notification) {
+    if (notification.includes('[AFH]')) return;
+    if (notification.includes('Used')) {
+        notifyPlayer('U-s-e-d item!', 'error');
+        return;
+    }
+
     // Notification is string. It can be:
     // - "Gutted a total of X fish!"
     if (notification.includes('Gutted') && store.get().config.autoStore) {
         //Trigger auto store
         triggerAutoStore();
     }
+
+
+    if (notification.includes('Fish:') && !notification.toLowerCase().includes('meat') && store.get().config.autoGut) {
+        //Trigger auto gut
+        notifyPlayer('New fish caught!', 'success');
+        triggerAutoGut();
+        if (notification.toLowerCase().includes('crab')) {
+            const closestPot = findClosestPot();
+            if (closestPot.distance < 15 && store.get().inventoryCache.fish_pot > 0) {
+                notifyPlayer(`Collected a ${closestPot.pot.type} pot!`, 'success');
+                // Remove the pot from the list
+                store.set({ pots: store.get().pots.filter(p => p.id !== closestPot.pot.id) });
+                // Remove the blip from the list
+                if (store.get().config.activateBlips) {
+                    store.set({ potBlips: store.get().potBlips.filter(blip => blip.id !== `afh_blip${closestPot.pot.id}`) });
+                    sendCommand({ type: 'removeBlip', id: `afh_blip${closestPot.pot.id}` });
+                }
+                updatePotDisplay();
+
+                // Update cached pot data in localStorage to reflect the removed pot
+                const cachedPotsRaw = localStorage.getItem('cachedPots');
+                if (cachedPotsRaw) {
+                    try {
+                        const cachedPots = JSON.parse(cachedPotsRaw);
+                        // Remove the collected pot from cached data
+                        cachedPots.data = cachedPots.data.filter(pot => pot.id !== closestPot.pot.id);
+                        // Update the cache with the modified data
+                        localStorage.setItem('cachedPots', JSON.stringify({ timestamp: cachedPots.timestamp, data: cachedPots.data }));
+                        // handlePotData(cachedPots.data);
+                    } catch (e) {
+                        // console.error('Error updating cached pot data:', e);
+                    }
+                }
+            }
+        }
+    }
+
+    if (notification.toLowerCase().includes('placed') && notification.toLowerCase().includes('pot')) {
+        // Pot placement detection
+        if (store.get().inventoryCache.pots > 0 && newInventory.pots < store.get().inventoryCache.pots) {
+            const collectionTime = store.get().config.fishingPerkActive ? 11 : 22;
+            notifyPlayer(`Pot placed! Ready for collection in ~g~${collectionTime} hours.`, 'info');
+            store.set({ pots: [...store.get().pots, { id: store.get().pots.length + 1, position: store.get().playerPosition, age: 0, type: 'crab' }] });
+            updatePotDisplay();
+        }
+    }
+
 }
+
 function triggerAutoPlacePots() {
     if (store.get().config.autoPlacePots && !store.get().actionsRunning.autoPlacePots) {
         const closestPot = findClosestPot();
@@ -339,7 +389,7 @@ function addPotBlip(pot) {
 }
 
 function clearPotBlips() {
-    store.get().potBlips.forEach(blip => {  
+    store.get().potBlips.forEach(blip => {
         sendCommand({ type: 'removeBlip', id: blip.id });
     });
     store.set({ potBlips: [] });
@@ -489,7 +539,7 @@ function checkForPotCollection() {
         }
     }
     updatePotDisplay();
-    triggerAutoGut();
+    //triggerAutoGut();
 
     // let currentPotCount = 0;
     // const itemsToCount = ['pot_crab', 'pot_lobster'];
@@ -561,7 +611,7 @@ function handleInventoryChange() {
             store.set({ potBlips: store.get().potBlips.filter(blip => blip.id !== `afh_blip${closestPot.pot.id}`) });
             sendCommand({ type: 'removeBlip', id: `afh_blip${closestPot.pot.id}` });
             updatePotDisplay();
-            triggerAutoGut();
+            //triggerAutoGut();
 
             // Update cached pot data in localStorage to reflect the removed pot
             const cachedPotsRaw = localStorage.getItem('cachedPots');
@@ -580,7 +630,7 @@ function handleInventoryChange() {
 
         } else { // Fish caught by other means (e.g., fishing rod)
             notifyPlayer('New fish caught!', 'success');
-            triggerAutoGut();
+            //triggerAutoGut();
         }
     }
 
@@ -607,7 +657,7 @@ async function triggerAutoStore() {
         const putAllChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'put all');
         if (putAllChoice.index !== -1) {
             sendCommand({ type: 'forceMenuChoice', choice: putAllChoice.name, mod: 0 });
-            notifyPlayer('All fish meat stored in trunk.', 'success');
+            // notifyPlayer('All fish meat stored in trunk.', 'success');
         } else {
             notifyPlayer('Could not find \'Put All\' option.', 'error');
         }
@@ -979,6 +1029,7 @@ async function autoGutFish() {
         sendCommand({ type: 'sendCommand', command: 'item gut_knife gut' });
         //await new Promise(resolve => setTimeout(resolve, 5000));
         //triggerAutoStore();
+        store.set({ inventoryCache: { fish: 0, fish_pot: 0 } });
     }
 }
 
@@ -997,19 +1048,21 @@ function initialize() {
     document.querySelectorAll('.window').forEach(makeDraggable);
 
     // Load settings
-    store.set({ config: {
-        fishingPerkActive: localStorage.getItem('fishingPerkActive') === 'true',
-        autoGut: localStorage.getItem('autoGut') === 'true',
-        autoStore: localStorage.getItem('autoStore') === 'true',
-        activateBlips: localStorage.getItem('activateBlips') === 'true',
-        autoHide: localStorage.getItem('autoHide') === 'true',
-        apiMode: localStorage.getItem('apiMode') || 'mock',
-        apiKey: localStorage.getItem('apiKey') || '',
-        sortBy: localStorage.getItem('sortBy') || 'distance',
-        sortOrder: localStorage.getItem('sortOrder') || 'asc',
-        autoPlacePots: localStorage.getItem('autoPlacePots') === 'true'
-    }});
-    store.set({ pinnedWindows: JSON.parse(localStorage.getItem('pinnedWindows') || '[]') }) ;
+    store.set({
+        config: {
+            fishingPerkActive: localStorage.getItem('fishingPerkActive') === 'true',
+            autoGut: localStorage.getItem('autoGut') === 'true',
+            autoStore: localStorage.getItem('autoStore') === 'true',
+            activateBlips: localStorage.getItem('activateBlips') === 'true',
+            autoHide: localStorage.getItem('autoHide') === 'true',
+            apiMode: localStorage.getItem('apiMode') || 'mock',
+            apiKey: localStorage.getItem('apiKey') || '',
+            sortBy: localStorage.getItem('sortBy') || 'distance',
+            sortOrder: localStorage.getItem('sortOrder') || 'asc',
+            autoPlacePots: localStorage.getItem('autoPlacePots') === 'true'
+        }
+    });
+    store.set({ pinnedWindows: JSON.parse(localStorage.getItem('pinnedWindows') || '[]') });
 
     // Apply settings to UI
     document.getElementById('perk-active').checked = store.get().config.fishingPerkActive;
@@ -1036,18 +1089,20 @@ function initialize() {
 
     // Add event listeners
     document.getElementById('save-settings-btn').onclick = () => {
-        store.set({ config: {
-            fishingPerkActive: document.getElementById('perk-active').checked,
-            autoGut: document.getElementById('auto-gut').checked,
-            autoStore: document.getElementById('auto-store').checked,
-            activateBlips: document.getElementById('activate-blips').checked,
-            autoHide: document.getElementById('auto-hide').checked,
-            apiMode: document.getElementById('api-mode').value,
-            apiKey: document.getElementById('api-key').value,
-            sortBy: document.getElementById('sort-by').value,
-            sortOrder: document.getElementById('sort-order').value,
-            autoPlacePots: document.getElementById('auto-place-pots').checked
-        } });
+        store.set({
+            config: {
+                fishingPerkActive: document.getElementById('perk-active').checked,
+                autoGut: document.getElementById('auto-gut').checked,
+                autoStore: document.getElementById('auto-store').checked,
+                activateBlips: document.getElementById('activate-blips').checked,
+                autoHide: document.getElementById('auto-hide').checked,
+                apiMode: document.getElementById('api-mode').value,
+                apiKey: document.getElementById('api-key').value,
+                sortBy: document.getElementById('sort-by').value,
+                sortOrder: document.getElementById('sort-order').value,
+                autoPlacePots: document.getElementById('auto-place-pots').checked
+            }
+        });
         localStorage.setItem('fishingPerkActive', store.get().config.fishingPerkActive);
         localStorage.setItem('autoGut', store.get().config.autoGut);
         localStorage.setItem('autoStore', store.get().config.autoStore);
@@ -1069,11 +1124,13 @@ function initialize() {
     };
 
     const handleSortChange = () => {
-        store.set({ config: {
-            ...store.get().config,
-            sortBy: document.getElementById('sort-by').value,
-            sortOrder: document.getElementById('sort-order').value
-        } });
+        store.set({
+            config: {
+                ...store.get().config,
+                sortBy: document.getElementById('sort-by').value,
+                sortOrder: document.getElementById('sort-order').value
+            }
+        });
         localStorage.setItem('sortBy', store.get().config.sortBy);
         localStorage.setItem('sortOrder', store.get().config.sortOrder);
         updatePotDisplay();
