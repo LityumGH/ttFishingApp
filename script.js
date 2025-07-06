@@ -176,16 +176,15 @@ function handleNotification(notification) {
 
 
     if (notification.includes('Fish:') && !notification.toLowerCase().includes('meat')) {
-        
         notifyPlayer('New fish detected!', 'info');
 
         //Trigger auto gut
         if (store.get().config.autoGut) {
             triggerAutoGut();
         }
-        
+
         if (notification.includes('Crab')) {
-            const closestPot = findClosestPot();    
+            const closestPot = findClosestPot();
             if (closestPot.distance < 11) {
                 notifyPlayer('Crab pot collected flag set', 'warning');
                 store.set({ actionsRunning: { ...store.get().actionsRunning, potCollection: true } });
@@ -320,7 +319,49 @@ async function fetchPotData() {
     potsTableBody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading pot data...</td></tr>';
 
     if (store.get().config.apiMode === 'mock') {
-        const mockResponse = [{ "position": { "x": 4815, "z": 0.16, "y": -5152.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4690, "z": 0.17, "y": -5187.90 }, "type": "crab", "age": 82000 }, { "position": { "x": 4571, "z": 0.16, "y": -5237.00 }, "type": "crab", "age": 250000 }, { "position": { "x": 4437, "z": 0.16, "y": -5288.00 }, "type": "crab", "age": 900000 }];
+        // const mockResponse = [{ "position": { "x": 4815, "z": 0.16, "y": -5152.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4690, "z": 0.17, "y": -5187.90 }, "type": "crab", "age": 82000 }, { "position": { "x": 4571, "z": 0.16, "y": -5237.00 }, "type": "crab", "age": 250000 }, { "position": { "x": 4437, "z": 0.16, "y": -5288.00 }, "type": "crab", "age": 900000 }];
+        const mockResponse = [
+            { "position": { "x": 4815, "z": 0.16, "y": -5152.52 }, "type": "crab", "age": 1790 },
+            { "position": { "x": 5015, "z": 0.16, "y": -4952.52 }, "type": "crab", "age": 3590 },
+            { "position": { "x": 5215, "z": 0.16, "y": -4752.52 }, "type": "crab", "age": 7190 },
+            { "position": { "x": 5415, "z": 0.16, "y": -4552.52 }, "type": "crab", "age": 10790 },
+            { "position": { "x": 5615, "z": 0.16, "y": -4352.52 }, "type": "crab", "age": 14390 },
+            { "position": { "x": 5815, "z": 0.16, "y": -4152.52 }, "type": "crab", "age": 17990 },
+            { "position": { "x": 6015, "z": 0.16, "y": -3952.52 }, "type": "crab", "age": 21590 },
+            { "position": { "x": 6215, "z": 0.16, "y": -3752.52 }, "type": "crab", "age": 25190 },
+            { "position": { "x": 6415, "z": 0.16, "y": -3552.52 }, "type": "crab", "age": 28790 },
+            { "position": { "x": 6615, "z": 0.16, "y": -3352.52 }, "type": "crab", "age": 32390 },
+            { "position": { "x": 6815, "z": 0.16, "y": -3152.52 }, "type": "crab", "age": 35990 },
+            { "position": { "x": 7015, "z": 0.16, "y": -2952.52 }, "type": "lobster", "age": 39590 },
+            { "position": { "x": 7215, "z": 0.16, "y": -2752.52 }, "type": "lityum", "age": 43190 },
+            { "position": { "x": 7415, "z": 0.16, "y": -2552.52 }, "type": "seal", "age": 46790 },
+            { "position": { "x": 7615, "z": 0.16, "y": -2352.52 }, "type": "sand", "age": 50390 },
+            { "position": { "x": 7815, "z": 0.16, "y": -2152.52 }, "type": "sand", "age": 53990 },
+            { "position": { "x": 8015, "z": 0.16, "y": -1952.52 }, "type": "sand", "age": 57590 },
+            { "position": { "x": 8215, "z": 0.16, "y": -1752.52 }, "type": "crab", "age": 61190 },
+            { "position": { "x": 8415, "z": 0.16, "y": -1552.52 }, "type": "crab", "age": 64790 },
+            { "position": { "x": 8615, "z": 0.16, "y": -1352.52 }, "type": "crab", "age": 68390 },
+            { "position": { "x": 8815, "z": 0.16, "y": -1152.52 }, "type": "crab", "age": 71990 },
+            { "position": { "x": 9015, "z": 0.16, "y": -952.52 }, "type": "crab", "age": 75590 },
+            { "position": { "x": 9215, "z": 0.16, "y": -752.52 }, "type": "crab", "age": 79190 },
+            { "position": { "x": 9415, "z": 0.16, "y": -552.52 }, "type": "crab", "age": 82790 },
+            { "position": { "x": 9615, "z": 0.16, "y": -352.52 }, "type": "crab", "age": 86390 },
+            { "position": { "x": 9815, "z": 0.16, "y": -152.52 }, "type": "crab", "age": 89990 },
+            { "position": { "x": 10015, "z": 0.16, "y": 47.48 }, "type": "crab", "age": 93590 },
+            { "position": { "x": 10215, "z": 0.16, "y": 247.48 }, "type": "crab", "age": 97190 },
+            { "position": { "x": 10415, "z": 0.16, "y": 447.48 }, "type": "crab", "age": 100790 },
+            { "position": { "x": 10615, "z": 0.16, "y": 647.48 }, "type": "crab", "age": 104390 },
+            { "position": { "x": 10815, "z": 0.16, "y": 847.48 }, "type": "crab", "age": 107990 },
+            { "position": { "x": 11015, "z": 0.16, "y": 1047.48 }, "type": "crab", "age": 111590 },
+            { "position": { "x": 11215, "z": 0.16, "y": 1247.48 }, "type": "crab", "age": 115190 },
+            { "position": { "x": 11415, "z": 0.16, "y": 1447.48 }, "type": "crab", "age": 118790 },
+            { "position": { "x": 11615, "z": 0.16, "y": 1647.48 }, "type": "crab", "age": 122390 },
+            { "position": { "x": 11815, "z": 0.16, "y": 1847.48 }, "type": "crab", "age": 125990 + 3600 },
+            { "position": { "x": 12015, "z": 0.16, "y": 2047.48 }, "type": "crab", "age": 129590 + 3600 * 4},
+            { "position": { "x": 12215, "z": 0.16, "y": 2247.48 }, "type": "crab", "age": 133190 + 3600 * 4 },
+            { "position": { "x": 12415, "z": 0.16, "y": 2447.48 }, "type": "crab", "age": 136790 + 3600 * 13 },
+            { "position": { "x": 12615, "z": 0.16, "y": 2647.48 }, "type": "crab", "age": 140390 + 3600 * 130 }
+        ];
         setTimeout(() => { // Simulate network delay
             handlePotData(mockResponse);
             localStorage.setItem('cachedPots', JSON.stringify({ timestamp: Date.now() - 79200, data: mockResponse }));
@@ -680,14 +721,12 @@ async function triggerAutoStore() {
             if (chestItems.length > 0) {
                 for (const item of chestItems) {
                     if (item.includes('pot_')) {
-                        notifyPlayer(`Taking pots from trunk.1`, 'info');
-
+                        notifyPlayer(`Taking pots from trunk.`, 'info');
                         const takeChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'Take', ['Weightless', 'Repeat']);
                         if (takeChoice.index !== -1) {
                             sendCommand({ type: 'forceMenuChoice', choice: takeChoice.name, mod: -1 });
                         }
                         await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('take'));
-                        
                         const takePotChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'pot');
                         if (takePotChoice.index !== -1) {
                             sendCommand({ type: 'forceMenuChoice', choice: takePotChoice.name, mod: -1 });
@@ -707,14 +746,12 @@ async function triggerAutoStore() {
                     if (invItems.length > 0) {
                         for (const item of invItems) {
                             if (item.includes('pot_')) {
-                                notifyPlayer(`Taking pots from trunk.2`, 'info');
-        
+                                notifyPlayer(`Taking pots from trunk.`, 'info');
                                 const takeChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'Take', ['Weightless', 'Repeat']);
                                 if (takeChoice.index !== -1) {
                                     sendCommand({ type: 'forceMenuChoice', choice: takeChoice.name, mod: -1 });
                                 }
                                 await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('take'));
-                                
                                 const takePotChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'pot');
                                 if (takePotChoice.index !== -1) {
                                     sendCommand({ type: 'forceMenuChoice', choice: takePotChoice.name, mod: -1 });
@@ -832,49 +869,65 @@ function updatePotDisplay() {
     const tableBody = document.querySelector('#pots-table tbody');
     tableBody.innerHTML = '';
 
-    const maxYield = 138;
-    const collectionTimePerk = 11 * 3600;
-    const collectionTimeNoPerk = 22 * 3600;
+    const potYieldModifier = {
+        "crab": 6,
+        "lobster": 2,
+        "sand": 3,
+    }
+    
+    const potExpModifier = {
+        "crab": 0.1,
+        "lobster": 0.6,
+        "sand": 0.3,
+    }
+
     const oneHour = 3600;
 
     const potsToDisplay = store.get().pots.map(pot => {
-        const { fishingPerkActive } = store.get().config;
-        const hours = pot.age / oneHour;
+        const fishingPerkActive = store.get().config.fishingPerkActive;
+        const hours = Math.floor(pot.age / oneHour);    // hours since pot was placed
         const level = Math.floor((Math.sqrt(1 + 8 * store.get().fishingExp / 5) - 1) / 2);
-        const peakHours = Math.ceil(level / 5) + 2;
+        const peakHours = Math.min(Math.ceil(level / 5) + 2, 22);
         const isReadyForCollection = hours >= (fishingPerkActive ? peakHours / 2 : peakHours);
-    
+
         let yieldHours;
-    
+
+        const yieldCalcHours = hours;
+
+        // calculate yieldHours
         if (fishingPerkActive) {
-            yieldHours = Math.min(hours * 2, peakHours);
+            yieldHours = Math.min(yieldCalcHours * 2, peakHours);
+            console.log('pot.id: ' + pot.id, 'yieldCalcHours: ' + yieldCalcHours, 'yieldHours: ' + yieldHours, 'peakHours: ' + peakHours, 'degraded: ' + 0, 'fishingPerkActive: ' + fishingPerkActive);
         } else {
-            if (hours > peakHours) {
-                const degraded = Math.max(0, -1 + Math.floor((hours - peakHours) / 12));
-                yieldHours = Math.max(Math.ceil(peakHours / 2), peakHours - degraded);
+            if (yieldCalcHours > peakHours) {
+                const degraded = Math.max(0, -1 + Math.floor((yieldCalcHours - peakHours) / 12));
+                yieldHours = Math.max(Math.ceil(peakHours / 2), peakHours - degraded);  // degrade every 12 hours
+                console.log('pot.id: ' + pot.id, 'yieldCalcHours: ' + yieldCalcHours, 'yieldHours: ' + yieldHours, 'peakHours: ' + peakHours, 'degraded: ' + degraded, 'fishingPerkActive: ' + fishingPerkActive, 'if');
             } else {
-                yieldHours = hours;
+                yieldHours = yieldCalcHours;  // soaking every hour
+                console.log('pot.id: ' + pot.id, 'yieldCalcHours: ' + yieldCalcHours, 'yieldHours: ' + yieldHours, 'peakHours: ' + peakHours, 'degraded: ' + 0, 'fishingPerkActive: ' + fishingPerkActive, 'else');
             }
         }
-    
-        const hourlyRate = maxYield / peakHours;
-        const potYield = Math.floor(yieldHours * hourlyRate);
-    
+
+        // calculate potYield and potExp
+        const potYield = (yieldHours + 1) * (potYieldModifier[pot.type] || 6);
+        const potExp = potYield * (potExpModifier[pot.type] || 0.1);
+
         let potState;
         if (fishingPerkActive) {
             potState = isReadyForCollection ? 'Ready' : 'Soaking';
         } else {
-            if (hours <= peakHours) {
+            if (hours < peakHours) {
                 potState = 'Soaking';
             } else if (yieldHours === peakHours) {
                 potState = 'Ready';
-            } else if (yieldHours <= peakHours / 2) {
+            } else if (yieldHours <= Math.ceil(peakHours / 2)) {
                 potState = 'Degraded';
             } else {
                 potState = 'Degrading';
             }
         }
-    
+
         return {
             ...pot,
             isReady: isReadyForCollection,
@@ -883,7 +936,6 @@ function updatePotDisplay() {
             distance: calculateDistance(store.get().playerPosition, pot.position)
         };
     });
-    
 
     // Sorting logic
     potsToDisplay.sort((a, b) => {
@@ -901,7 +953,6 @@ function updatePotDisplay() {
             return store.get().config.sortOrder === 'asc' ? compareA - compareB : compareB - compareA;
         }
     });
-
 
     potsToDisplay.forEach(pot => {
         const row = document.createElement('tr');
@@ -1098,14 +1149,12 @@ async function takePotFromTrunk() {
             for (const item of chestItems) {
                 if (item.includes('pot_')) {
                     notifyPlayer(`Taking ${item} from trunk.`, 'info');
-
                     const takeChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'Take', ['Weightless', 'Repeat']);
                     notifyPlayer('takeChoice.name: ' + takeChoice.name, 'warning');
                     if (takeChoice.index !== -1) {
                         sendCommand({ type: 'forceMenuChoice', choice: takeChoice.name, mod: -1 });
                     }
                     await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('take'));
-                    
                     const takePotChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'pot');
                     notifyPlayer('takePotChoice.name: ' + takePotChoice.name, 'warning');
                     if (takePotChoice.index !== -1) {
@@ -1303,7 +1352,7 @@ function initialize() {
         document.getElementById('main-container').style.display = 'block';
         handleGameData({
             job: 'fisher', job_name: 'Fisher', vehicleClass: 14, vehicleName: 'Tropic',
-            pos_x: 4000, pos_y: -5000, 'exp_farming_fishing': 25250,
+            pos_x: 4000, pos_y: -5000, 'exp_farming_fishing': 250,  // 340: 11 level, peak 5 hours;  250: 9 level, peak 4 hours
             inventory: JSON.stringify({ "pot_crab": { "amount": 10 }, "fish_tuna": { "amount": 5 } }),
             "chest_self_storage:12345:home:chest": JSON.stringify({ "pot_lobster": { "amount": 5 } }),
             weather: 'THUNDER',
