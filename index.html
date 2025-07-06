@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>Advanced Fishing Helper</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -12,7 +15,7 @@
         <!-- Info Window -->
         <div id="info-window" class="window">
             <div class="window-header">
-                <span class="window-title">Info</span>
+                <span class="window-title">Advanced Fishing Helper</span>
                 <div class="controls">
                     <span class="pin-button" onclick="togglePin('info-window')">&#128204;</span>
                     <span class="toggle-button" onclick="toggleWindow('info-window')">_</span>
@@ -22,7 +25,10 @@
                 <p><strong>Status:</strong> <span id="status">Inactive</span></p>
                 <p><strong>Job:</strong> <span id="job-name">N/A</span></p>
                 <p><strong>Fishing EXP:</strong> <span id="fishing-exp">0</span></p>
-                <p><strong>Vehicle:</strong> <span id="vehicle-name">N/A</span></p>
+                <p><strong>Own Boat:</strong> <span id="vehicle-name">N/A</span></p>
+                <p><strong>Weather:</strong> <span id="current-weather">N/A</span></p>
+                <p><strong>Forecast:</strong> <span id="forecast-weather">N/A</span></p>
+                <p><strong>Conditions:</strong> <span id="fishing-conditions">N/A</span></p>
             </div>
         </div>
 
@@ -58,9 +64,10 @@
                 </div>
             </div>
             <div class="window-content">
-                <div id="pot-warning">Warning: Pot data is outdated. Please fetch new data.</div>
+                <div id="pot-warning">Warning: Pot data might be outdated. Please fetch new data.</div>
                 <div class="sort-controls">
-                    <button id="fetch-pots-btn" style="width: auto; flex-grow: 1;">Fetch Pot Data</button>
+                    <button id="fetch-pots-btn" style="width: auto; flex-grow: 1; margin-top: 0;">Fetch Pot Data</button>
+                    <button id="clear-waypoint-btn" style="width: auto; flex-grow: 1; margin-top: 0;" onclick="clearWaypointHandler()">Clear Waypoint</button>
                     <label for="sort-by" style="margin: 0;">Sort By:</label>
                     <select id="sort-by" style="width: auto; flex-grow: 1;">
                         <option value="id">ID</option>
@@ -106,6 +113,8 @@
                 <label><input type="checkbox" id="perk-active"> Fishing Perk Active</label>
                 <label><input type="checkbox" id="auto-gut"> Auto-Gut Fish</label>
                 <label><input type="checkbox" id="auto-store"> Auto-Store Fish</label>
+                <label><input type="checkbox" id="auto-place-pots"> Auto-Place Pots</label>
+                <label><input type="checkbox" id="activate-blips"> Activate Blips</label>
                 <label><input type="checkbox" id="auto-hide"> Auto Hide App</label>
                 <hr style="border-color: var(--border-color); margin: 10px 0;">
                 <label for="api-mode">API Mode:</label>
@@ -115,7 +124,7 @@
                 </select>
                 <div id="api-key-container" style="display: none;">
                     <label for="api-key">Private API Key:</label>
-                    <input type="text" id="api-key" placeholder="Enter your key">
+                    <input type="password" id="api-key" placeholder="Enter your key">
                 </div>
                 <button id="save-settings-btn">Save Settings</button>
                 <div id="api-status"></div>
@@ -133,9 +142,10 @@
             </div>
             <div class="window-content">
                 <p><strong>Advanced Fishing Helper</strong></p>
-                <p>Version: 0.1.0</p>
-                <p>Created by: Lityum</p>
-                <p>A tool to assist with fishing activities.</p>
+                <p><strong>Version:</strong> 0.7</p>
+                <p><strong>Developed by:</strong> Lityum, Hagfog</p>
+                <p><i>A tool to assist with fishing activities.</i></p>
+                <p><a href="https://github.com/LityumGH/ttFishingApp" target="_blank">GitHub Repository </a></p>
             </div>
         </div>
 
@@ -152,6 +162,7 @@
                 <div class="debug-tabs">
                     <button class="debug-tab-button active" onclick="openDebugTab(event, 'RawData')">Raw Data</button>
                     <button class="debug-tab-button" onclick="openDebugTab(event, 'SendCommand')">Send Command</button>
+                    <button class="debug-tab-button" onclick="openDebugTab(event, 'Automation')">Automation</button>
                 </div>
                 <div id="RawData" class="debug-tab-content active">
                     <pre id="debug-data"></pre>
@@ -159,6 +170,11 @@
                 <div id="SendCommand" class="debug-tab-content">
                     <textarea id="command-json" placeholder='{ "type": "notification", "text": "Hello" }'></textarea>
                     <button id="send-command-btn">Send</button>
+                </div>
+                <div id="Automation" class="debug-tab-content">
+                    <button id="run-sequence-btn">Run Sequence</button>
+                    <button id="clear-blips-btn">Clear Blips</button>
+                    <button id="update-blips-btn">Update Blips</button>
                 </div>
             </div>
         </div>

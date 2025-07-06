@@ -107,17 +107,21 @@ body {
 #info-window {
     top: 20px;
     left: 20px;
-    width: 250px;
+    width: 320px;
+}
+
+#info-window .window-content p {
+    margin: 5px 2px;
 }
 
 #inventory-window {
     top: 20px;
-    left: 290px;
+    left: 350px;
     width: 350px;
 }
 
 #pots-window {
-    top: 220px;
+    top: 300px;
     left: 20px;
     width: 620px;
     height: 250px;
@@ -132,13 +136,17 @@ body {
 }
 
 #about-window {
-    top: 250px;
+    top: 490px;
     right: 20px;
     width: 250px;
 }
 
+#about-window .window-content p {
+    margin: 5px 2px;
+}
+
 #debug-window {
-    top: 450px;
+    top: 600px;
     left: 20px;
     width: 400px;
     height: 300px;
@@ -178,6 +186,7 @@ input[type="checkbox"] {
 }
 
 input[type="text"],
+input[type="password"],
 select,
 button,
 textarea {
@@ -275,7 +284,6 @@ button:hover {
 
 .status-degraded {
     color: var(--degraded-color);
-    font-weight: bold;
 }
 
 .status-degrading {
@@ -284,7 +292,6 @@ button:hover {
 
 .status-ready {
     color: var(--ready-color);
-    font-weight: bold;
 }
 
 #pots-table td {
