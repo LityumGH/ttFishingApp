@@ -1,6 +1,6 @@
 // --- CONSTANTS ---
 const API_BASE_URL = 'https://tycoon-2epova.users.cfx.re/status';
-const DEBUG_MODE = true; // Set to true to show all windows and extra logs
+const DEBUG_MODE = false; // Set to true to show all windows and extra logs
 
 // --- STATE MANAGEMENT ---
 function createFastStore(initial = {}) {
@@ -186,7 +186,7 @@ function handleNotification(notification) {
         if (notification.includes('Crab')) {
             const closestPot = findClosestPot();
             if (closestPot.distance < 11) {
-                notifyPlayer('Crab pot collected flag set', 'warning');
+                // notifyPlayer('Crab pot collected flag set', 'warning');
                 store.set({ actionsRunning: { ...store.get().actionsRunning, potCollection: true } });
             }
         }
@@ -320,47 +320,46 @@ async function fetchPotData() {
 
     if (store.get().config.apiMode === 'mock') {
         // const mockResponse = [{ "position": { "x": 4815, "z": 0.16, "y": -5152.52 }, "type": "crab", "age": 5091 }, { "position": { "x": 4690, "z": 0.17, "y": -5187.90 }, "type": "crab", "age": 82000 }, { "position": { "x": 4571, "z": 0.16, "y": -5237.00 }, "type": "crab", "age": 250000 }, { "position": { "x": 4437, "z": 0.16, "y": -5288.00 }, "type": "crab", "age": 900000 }];
-        const mockResponse = [
-            { "position": { "x": 4815, "z": 0.16, "y": -5152.52 }, "type": "crab", "age": 1790 },
-            { "position": { "x": 5015, "z": 0.16, "y": -4952.52 }, "type": "crab", "age": 3590 },
-            { "position": { "x": 5215, "z": 0.16, "y": -4752.52 }, "type": "crab", "age": 7190 },
-            { "position": { "x": 5415, "z": 0.16, "y": -4552.52 }, "type": "crab", "age": 10790 },
-            { "position": { "x": 5615, "z": 0.16, "y": -4352.52 }, "type": "crab", "age": 14390 },
-            { "position": { "x": 5815, "z": 0.16, "y": -4152.52 }, "type": "crab", "age": 17990 },
-            { "position": { "x": 6015, "z": 0.16, "y": -3952.52 }, "type": "crab", "age": 21590 },
-            { "position": { "x": 6215, "z": 0.16, "y": -3752.52 }, "type": "crab", "age": 25190 },
-            { "position": { "x": 6415, "z": 0.16, "y": -3552.52 }, "type": "crab", "age": 28790 },
-            { "position": { "x": 6615, "z": 0.16, "y": -3352.52 }, "type": "crab", "age": 32390 },
-            { "position": { "x": 6815, "z": 0.16, "y": -3152.52 }, "type": "crab", "age": 35990 },
-            { "position": { "x": 7015, "z": 0.16, "y": -2952.52 }, "type": "lobster", "age": 39590 },
-            { "position": { "x": 7215, "z": 0.16, "y": -2752.52 }, "type": "lityum", "age": 43190 },
-            { "position": { "x": 7415, "z": 0.16, "y": -2552.52 }, "type": "seal", "age": 46790 },
-            { "position": { "x": 7615, "z": 0.16, "y": -2352.52 }, "type": "sand", "age": 50390 },
-            { "position": { "x": 7815, "z": 0.16, "y": -2152.52 }, "type": "sand", "age": 53990 },
-            { "position": { "x": 8015, "z": 0.16, "y": -1952.52 }, "type": "sand", "age": 57590 },
-            { "position": { "x": 8215, "z": 0.16, "y": -1752.52 }, "type": "crab", "age": 61190 },
-            { "position": { "x": 8415, "z": 0.16, "y": -1552.52 }, "type": "crab", "age": 64790 },
-            { "position": { "x": 8615, "z": 0.16, "y": -1352.52 }, "type": "crab", "age": 68390 },
-            { "position": { "x": 8815, "z": 0.16, "y": -1152.52 }, "type": "crab", "age": 71990 },
-            { "position": { "x": 9015, "z": 0.16, "y": -952.52 }, "type": "crab", "age": 75590 },
-            { "position": { "x": 9215, "z": 0.16, "y": -752.52 }, "type": "crab", "age": 79190 },
-            { "position": { "x": 9415, "z": 0.16, "y": -552.52 }, "type": "crab", "age": 82790 },
-            { "position": { "x": 9615, "z": 0.16, "y": -352.52 }, "type": "crab", "age": 86390 },
-            { "position": { "x": 9815, "z": 0.16, "y": -152.52 }, "type": "crab", "age": 89990 },
-            { "position": { "x": 10015, "z": 0.16, "y": 47.48 }, "type": "crab", "age": 93590 },
-            { "position": { "x": 10215, "z": 0.16, "y": 247.48 }, "type": "crab", "age": 97190 },
-            { "position": { "x": 10415, "z": 0.16, "y": 447.48 }, "type": "crab", "age": 100790 },
-            { "position": { "x": 10615, "z": 0.16, "y": 647.48 }, "type": "crab", "age": 104390 },
-            { "position": { "x": 10815, "z": 0.16, "y": 847.48 }, "type": "crab", "age": 107990 },
-            { "position": { "x": 11015, "z": 0.16, "y": 1047.48 }, "type": "crab", "age": 111590 },
-            { "position": { "x": 11215, "z": 0.16, "y": 1247.48 }, "type": "crab", "age": 115190 },
-            { "position": { "x": 11415, "z": 0.16, "y": 1447.48 }, "type": "crab", "age": 118790 },
-            { "position": { "x": 11615, "z": 0.16, "y": 1647.48 }, "type": "crab", "age": 122390 },
-            { "position": { "x": 11815, "z": 0.16, "y": 1847.48 }, "type": "crab", "age": 125990 + 3600 },
-            { "position": { "x": 12015, "z": 0.16, "y": 2047.48 }, "type": "crab", "age": 129590 + 3600 * 4},
-            { "position": { "x": 12215, "z": 0.16, "y": 2247.48 }, "type": "crab", "age": 133190 + 3600 * 4 },
-            { "position": { "x": 12415, "z": 0.16, "y": 2447.48 }, "type": "crab", "age": 136790 + 3600 * 13 },
-            { "position": { "x": 12615, "z": 0.16, "y": 2647.48 }, "type": "crab", "age": 140390 + 3600 * 130 }
+        const mockResponse = [{ "type": "crab", "position": { "y": -5149.759765625, "z": 0.21701847016811, "x": 4888.0712890625 }, "age": 17277 },
+            { "type": "crab", "position": { "y": -5182.34912109375, "z": -0.70535272359848, "x": 4753.291015625 }, "age": 17259 },
+            { "type": "crab", "position": { "y": -5218.072265625, "z": -0.76718986034393, "x": 4617.4931640625 }, "age": 17243 },
+            { "type": "crab", "position": { "y": -5261.24267578125, "z": -0.36991009116172, "x": 4429.93310546875 }, "age": 11*3600 },
+            { "type": "crab", "position": { "y": -5268.15771484375, "z": -0.4619168639183, "x": 4301.11328125 }, "age": 22*3600 },
+            { "type": "crab", "position": { "y": -5285.86865234375, "z": -0.52720665931701, "x": 4161.93212890625 }, "age": 46*3600-10 },
+            { "type": "crab", "position": { "y": -5308.15625, "z": -0.58976018428802, "x": 4026.44775390625 }, "age": 70*3600-10 },
+            { "type": "crab", "position": { "y": -5329.49951171875, "z": -0.53005814552307, "x": 3860.073486328125 }, "age": 166*3600-10 },
+            { "type": "crab", "position": { "y": -5349.87109375, "z": -0.83912104368209, "x": 3721.862548828125 }, "age": 177*3600-10 },
+            { "type": "crab", "position": { "y": -5375.125, "z": -0.51604741811752, "x": 3550.22021484375 }, "age": 179*3600 },
+            { "type": "crab", "position": { "y": -5403.24169921875, "z": -0.59877079725265, "x": 3370.7421875 }, "age": 17070 },
+            { "type": "crab", "position": { "y": -5437.53662109375, "z": -0.77667194604873, "x": 3192.0703125 }, "age": 17037 },
+            { "type": "crab", "position": { "y": -5457.29541015625, "z": -0.44545397162437, "x": 3055.45654296875 }, "age": 17023 },
+            { "type": "crab", "position": { "y": -5476.61474609375, "z": -0.52935063838958, "x": 2908.35595703125 }, "age": 17009 },
+            { "type": "crab", "position": { "y": -5373.08837890625, "z": -0.69694530963897, "x": 4492.7275390625 }, "age": 16750 },
+            { "type": "crab", "position": { "y": -5399.263671875, "z": -0.64206933975219, "x": 4352.9208984375 }, "age": 16733 },
+            { "type": "crab", "position": { "y": -5430.5693359375, "z": -0.7971367239952, "x": 4213.11474609375 }, "age": 16716 },
+            { "type": "crab", "position": { "y": -5445.8515625, "z": -0.5644541978836, "x": 4080.660400390625 }, "age": 16701 },
+            { "type": "crab", "position": { "y": -5456.822265625, "z": -0.39270955324172, "x": 3948.472900390625 }, "age": 16685 },
+            { "type": "crab", "position": { "y": -5476.890625, "z": -0.68046897649765, "x": 3811.533447265625 }, "age": 16669 },
+            { "type": "crab", "position": { "y": -5497.56396484375, "z": -0.42885586619377, "x": 3657.878662109375 }, "age": 16652 },
+            { "type": "crab", "position": { "y": -5514.28564453125, "z": -0.61045652627944, "x": 3519.136474609375 }, "age": 16637 },
+            { "type": "crab", "position": { "y": -5535.88720703125, "z": -0.50635528564453, "x": 3385.2509765625 }, "age": 16623 },
+            { "type": "crab", "position": { "y": -5562.16015625, "z": -0.61524301767349, "x": 3246.49609375 }, "age": 16608 },
+            { "type": "crab", "position": { "y": -5600.70361328125, "z": -0.28910514712333, "x": 3018.197998046875 }, "age": 16589 },
+            { "type": "crab", "position": { "y": -5618.81201171875, "z": -0.4139070212841, "x": 2869.555419921875 }, "age": 16574 },
+            { "type": "crab", "position": { "y": -5600.24560546875, "z": -0.85140979290008, "x": 2721.820556640625 }, "age": 16560 },
+            { "type": "crab", "position": { "y": -5151.05712890625, "z": -0.51913142204284, "x": 4364.40576171875 }, "age": 16350 },
+            { "type": "crab", "position": { "y": -5147.81396484375, "z": -0.41992011666297, "x": 4233.1396484375 }, "age": 16335 },
+            { "type": "crab", "position": { "y": -5154.2490234375, "z": -0.53720414638519, "x": 4101.935546875 }, "age": 16320 },
+            { "type": "crab", "position": { "y": -5164.837890625, "z": -0.66131508350372, "x": 3969.5556640625 }, "age": 16304 },
+            { "type": "crab", "position": { "y": -5186.94873046875, "z": -0.64436054229736, "x": 3838.661865234375 }, "age": 16289 },
+            { "type": "crab", "position": { "y": -5210.81689453125, "z": -0.53106343746185, "x": 3708.585205078125 }, "age": 16273 },
+            { "type": "crab", "position": { "y": -5233.212890625, "z": -0.77945387363433, "x": 3577.6806640625 }, "age": 16257 },
+            { "type": "crab", "position": { "y": -5260.05810546875, "z": -0.76321160793304, "x": 3446.51171875 }, "age": 16242 },
+            { "type": "crab", "position": { "y": -5283.16357421875, "z": -0.55829626321792, "x": 3312.194091796875 }, "age": 16226 },
+            { "type": "crab", "position": { "y": -5295.583984375, "z": -0.59182846546173, "x": 3180.0703125 }, "age": 16210 },
+            { "type": "crab", "position": { "y": -5306.74169921875, "z": -0.68594169616699, "x": 3048.262451171875 }, "age": 16194 },
+            { "type": "crab", "position": { "y": -5316.96630859375, "z": -0.54583913087844, "x": 2916.0830078125 }, "age": 16179 },
+            { "type": "crab", "position": { "y": -5323.99755859375, "z": -0.72026985883712, "x": 2787.104248046875 }, "age": 16162 }
         ];
         setTimeout(() => { // Simulate network delay
             handlePotData(mockResponse);
@@ -560,78 +559,6 @@ function waitForCondition(conditionFn, timeout = 2000) {
 }
 
 // --- AUTOMATION ---
-
-function checkForPotCollection() {
-    if (store.get().pots.length === 0 || !store.get().playerPosition) return;
-
-    const closestPot = store.get().pots.reduce((closest, pot) => {
-        const distance = calculateDistance(store.get().playerPosition, pot.position);
-        if (distance < closest.distance) {
-            return { pot, distance };
-        }
-        return closest;
-    }, { pot: null, distance: Infinity });
-
-    // if (closestPot.distance > 11) return;
-
-    notifyPlayer('[DEBUG] Closest pot: ' + closestPot.pot.type + ' at ' + closestPot.distance + 'm' + ' ID: ' + closestPot.pot.id);
-
-    if (closestPot.pot.type === 'crab') {
-        notifyPlayer('Crab pot collected.', 'success');
-    } else if (closestPot.pot.type === 'lobster') {
-        notifyPlayer('Lobster pot collected.', 'success');
-    } else {
-        notifyPlayer('Seafloor pot collected.', 'success');
-    }
-
-    // Remove the pot from the list
-    store.set({ pots: store.get().pots.filter(p => p.id !== closestPot.pot.id) });
-    // Update cached pot data in localStorage to reflect the removed pot
-    const cachedPotsRaw = localStorage.getItem('cachedPots');
-    if (cachedPotsRaw) {
-        try {
-            const cachedPots = JSON.parse(cachedPotsRaw);
-            // Remove the collected pot from cached data
-            cachedPots.data = cachedPots.data.filter(pot => pot.id !== closestPot.pot.id);
-            // Update the cache with the modified data
-            localStorage.setItem('cachedPots', JSON.stringify(cachedPots));
-        } catch (e) {
-            console.error('Error updating cached pot data:', e);
-        }
-    }
-    updatePotDisplay();
-    //triggerAutoGut();
-
-    // let currentPotCount = 0;
-    // const itemsToCount = ['pot_crab', 'pot_lobster'];
-    // for (const key in store.get().allGameData) {
-    //     if (key.startsWith('inventory')) {
-    //         try {
-    //             const inventory = JSON.parse(store.get().allGameData[key]);
-    //             for (const itemName in inventory) {
-    //                 const cleanName = itemName.split('|')[0];
-    //                 if (itemsToCount.includes(cleanName)) {
-    //                     currentPotCount += inventory[itemName].amount;
-    //                 }
-    //             }
-    //         } catch (e) { /* Ignore */ }
-    //     }
-    // }
-
-    // if (currentPotCount > state.previousPotCount) {
-    //     const collectedPotType = closestPot.pot ? closestPot.pot.type : 'pot';
-    //     sendCommand({ type: 'notification', text: `Collected one ${collectedPotType} pot.` });
-
-    //     // Optimistically remove the pot and refetch in the background
-    //     const potIndex = state.pots.findIndex(p => p.id === closestPot.pot.id);
-    //     if (potIndex > -1) {
-    //         state.pots.splice(potIndex, 1);
-    //     }
-    //     updatePotDisplay(); // Update UI immediately
-    //     fetchPotData(); // Fetch fresh data from API
-    // }
-    // state.previousPotCount = currentPotCount;
-}
 
 function handleInventoryChange() {
     const newInventory = { fish: 0, pots: 0, fish_pot: 0 };
@@ -874,7 +801,7 @@ function updatePotDisplay() {
         "lobster": 2,
         "sand": 3,
     }
-    
+
     const potExpModifier = {
         "crab": 0.1,
         "lobster": 0.6,
@@ -897,15 +824,12 @@ function updatePotDisplay() {
         // calculate yieldHours
         if (fishingPerkActive) {
             yieldHours = Math.min(yieldCalcHours * 2, peakHours);
-            console.log('pot.id: ' + pot.id, 'yieldCalcHours: ' + yieldCalcHours, 'yieldHours: ' + yieldHours, 'peakHours: ' + peakHours, 'degraded: ' + 0, 'fishingPerkActive: ' + fishingPerkActive);
         } else {
             if (yieldCalcHours > peakHours) {
                 const degraded = Math.max(0, -1 + Math.floor((yieldCalcHours - peakHours) / 12));
                 yieldHours = Math.max(Math.ceil(peakHours / 2), peakHours - degraded);  // degrade every 12 hours
-                console.log('pot.id: ' + pot.id, 'yieldCalcHours: ' + yieldCalcHours, 'yieldHours: ' + yieldHours, 'peakHours: ' + peakHours, 'degraded: ' + degraded, 'fishingPerkActive: ' + fishingPerkActive, 'if');
             } else {
                 yieldHours = yieldCalcHours;  // soaking every hour
-                console.log('pot.id: ' + pot.id, 'yieldCalcHours: ' + yieldCalcHours, 'yieldHours: ' + yieldHours, 'peakHours: ' + peakHours, 'degraded: ' + 0, 'fishingPerkActive: ' + fishingPerkActive, 'else');
             }
         }
 
@@ -1150,13 +1074,13 @@ async function takePotFromTrunk() {
                 if (item.includes('pot_')) {
                     notifyPlayer(`Taking ${item} from trunk.`, 'info');
                     const takeChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'Take', ['Weightless', 'Repeat']);
-                    notifyPlayer('takeChoice.name: ' + takeChoice.name, 'warning');
+                    // notifyPlayer('takeChoice.name: ' + takeChoice.name, 'warning');
                     if (takeChoice.index !== -1) {
                         sendCommand({ type: 'forceMenuChoice', choice: takeChoice.name, mod: -1 });
                     }
                     await waitForCondition(() => store.get().allGameData.menu_open && store.get().allGameData.menu?.toLowerCase().includes('take'));
                     const takePotChoice = findItemIndexBySubstring(store.get().allGameData.menu_choices, 'pot');
-                    notifyPlayer('takePotChoice.name: ' + takePotChoice.name, 'warning');
+                    //notifyPlayer('takePotChoice.name: ' + takePotChoice.name, 'warning');
                     if (takePotChoice.index !== -1) {
                         sendCommand({ type: 'forceMenuChoice', choice: takePotChoice.name, mod: -1 });
                     }
