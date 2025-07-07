@@ -1158,20 +1158,59 @@ function initialize() {
     });
 
     // Add event listeners
-    document.getElementById('save-settings-btn').onclick = () => {
-        store.set({
-            config: {
-                fishingPerkActive: document.getElementById('perk-active').checked,
-                autoGut: document.getElementById('auto-gut').checked,
-                autoStore: document.getElementById('auto-store').checked,
-                activateBlips: document.getElementById('activate-blips').checked,
-                autoHide: document.getElementById('auto-hide').checked,
-                apiMode: document.getElementById('api-mode').value,
-                apiKey: document.getElementById('api-key').value,
-                sortBy: document.getElementById('sort-by').value,
-                sortOrder: document.getElementById('sort-order').value,
-                autoPlacePots: document.getElementById('auto-place-pots').checked
+    const saveSettingsBtn = document.getElementById('save-settings-btn');
+    const settingsInputs = [
+        document.getElementById('perk-active'),
+        document.getElementById('auto-gut'),
+        document.getElementById('auto-store'),
+        document.getElementById('auto-place-pots'),
+        document.getElementById('activate-blips'),
+        document.getElementById('auto-hide'),
+        document.getElementById('api-mode'),
+        document.getElementById('api-key'),
+        document.getElementById('sort-by'),
+        document.getElementById('sort-order')
+    ];
+
+    const getCurrentSettingsFromUI = () => ({
+        fishingPerkActive: document.getElementById('perk-active').checked,
+        autoGut: document.getElementById('auto-gut').checked,
+        autoStore: document.getElementById('auto-store').checked,
+        autoPlacePots: document.getElementById('auto-place-pots').checked,
+        activateBlips: document.getElementById('activate-blips').checked,
+        autoHide: document.getElementById('auto-hide').checked,
+        apiMode: document.getElementById('api-mode').value,
+        apiKey: document.getElementById('api-key').value,
+        sortBy: document.getElementById('sort-by').value,
+        sortOrder: document.getElementById('sort-order').value
+    });
+
+    const settingsChanged = () => {
+        const currentSettings = getCurrentSettingsFromUI();
+        const savedSettings = store.get().config;
+        let hasChanged = false;
+        for (const key in currentSettings) {
+            if (currentSettings[key] !== savedSettings[key]) {
+                hasChanged = true;
+                if(DEBUG_MODE) console.log('settingsChanged: ' + key);
+                break;
             }
+        }
+        if (hasChanged) {
+            saveSettingsBtn.classList.add('blink');
+        } else {
+            saveSettingsBtn.classList.remove('blink');
+        }
+    };
+
+    settingsInputs.forEach(input => {
+        const eventType = input.type === 'checkbox' || input.tagName.toLowerCase() === 'select' ? 'onchange' : 'oninput';
+        input[eventType] = settingsChanged;
+    });
+
+    saveSettingsBtn.onclick = () => {
+        store.set({
+            config: getCurrentSettingsFromUI()
         });
         localStorage.setItem('fishingPerkActive', store.get().config.fishingPerkActive);
         localStorage.setItem('autoGut', store.get().config.autoGut);
@@ -1187,6 +1226,7 @@ function initialize() {
         const statusEl = document.getElementById('api-status');
         statusEl.textContent = 'Settings saved!';
         statusEl.style.backgroundColor = 'var(--success-color)';
+        saveSettingsBtn.classList.remove('blink');
 
         // update blips if activate blips is changed
         clearPotBlips();
@@ -1208,6 +1248,7 @@ function initialize() {
 
     document.getElementById('api-mode').onchange = (e) => {
         document.getElementById('api-key-container').style.display = e.target.value === 'real' ? 'block' : 'none';
+        settingsChanged();
     };
     document.getElementById('fetch-pots-btn').onclick = fetchPotData;
     document.getElementById('sort-by').onchange = handleSortChange;
@@ -1224,7 +1265,6 @@ function initialize() {
     document.getElementById('run-sequence-btn').onclick = runCommandSequence;
     document.getElementById('clear-blips-btn').onclick = clearPotBlips;
     document.getElementById('update-blips-btn').onclick = updatePotBlips;
-    document.getElementById('activate-blips').onchange = () => { };
     window.addEventListener("message", (event) => {
         if (event.data && event.data.data) {
             handleGameData(event.data.data);
